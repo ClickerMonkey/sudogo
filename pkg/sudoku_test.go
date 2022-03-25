@@ -101,6 +101,10 @@ func TestSolveSimple(t *testing.T) {
 	p.Print()
 	p.Solve()
 	p.Print()
+
+	if !p.Solved() {
+		t.Errorf("The solver failed to solve the naked single puzzle.")
+	}
 }
 
 func TestSolveHiddenSingle(t *testing.T) {
@@ -120,6 +124,10 @@ func TestSolveHiddenSingle(t *testing.T) {
 	println("TestSolveHiddenSingle")
 	p.Solve()
 	p.Print()
+
+	if p.Get(3, 2).value != 6 {
+		t.Errorf("The solver failed to use hidden single logic on r3c4.")
+	}
 }
 
 func TestGenerate(t *testing.T) {
