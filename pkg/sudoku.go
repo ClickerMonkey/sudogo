@@ -3,6 +3,7 @@ package sudogo
 import (
 	"math"
 	"math/rand"
+	"time"
 )
 
 type Size struct {
@@ -127,8 +128,20 @@ func (puzzle *Puzzle) DefaultCandidates() uint64 {
 	return uint64((1 << (puzzle.Digits() + 1)) - 1)
 }
 
-func (puzzle *Puzzle) Create() PuzzleInstance {
+func (puzzle *Puzzle) Empty() PuzzleInstance {
 	return NewInstance(puzzle)
+}
+
+func (puzzle *Puzzle) Create(values [][]int) PuzzleInstance {
+	instance := NewInstance(puzzle)
+	instance.SetAll(values)
+	return instance
+}
+
+func (puzzle *Puzzle) Generate() PuzzleInstance {
+	instance := NewInstance(puzzle)
+	instance.Generate(rand.New(rand.NewSource(time.Now().Unix())))
+	return instance
 }
 
 var Classic = &Puzzle{
@@ -151,6 +164,10 @@ func (cell *Cell) RemoveCandidate(value int) bool {
 
 func (cell *Cell) HasValue() bool {
 	return cell.value != 0
+}
+
+func (cell *Cell) Empty() bool {
+	return cell.value == 0
 }
 
 func (cell *Cell) HasCandidate(value int) bool {
@@ -290,7 +307,7 @@ func (instance *PuzzleInstance) SetCell(cell *Cell, value int) bool {
 
 	if set {
 		instance.ForInGroup(cell, func(other *Cell) bool {
-			if !other.HasValue() {
+			if other.Empty() {
 				other.RemoveCandidate(value)
 			}
 
@@ -343,7 +360,7 @@ func (instance *PuzzleInstance) GetHiddenSingle() (*Cell, int) {
 	// A cell which has a candidate that is unique to the row, cell, or box
 	for i := range instance.cells {
 		cell := &instance.cells[i]
-		if !cell.HasValue() {
+		if cell.Empty() {
 			box := instance.GetHiddenSingleBox(cell)
 			if box != 0 {
 				return cell, box
@@ -364,7 +381,7 @@ func (instance *PuzzleInstance) GetHiddenSingle() (*Cell, int) {
 func (instance *PuzzleInstance) GetHiddenSingleBox(cell *Cell) int {
 	on := cell.candidates
 	instance.ForInBox(cell, func(other *Cell) bool {
-		if !other.HasValue() {
+		if other.Empty() {
 			on.Remove(other.candidates.Value)
 			if on.Count == 0 {
 				return false
@@ -381,7 +398,7 @@ func (instance *PuzzleInstance) GetHiddenSingleBox(cell *Cell) int {
 func (instance *PuzzleInstance) GetHiddenSingleRow(cell *Cell) int {
 	on := cell.candidates
 	instance.ForInRow(cell, func(other *Cell) bool {
-		if !other.HasValue() {
+		if other.Empty() {
 			on.Remove(other.candidates.Value)
 			if on.Count == 0 {
 				return false
@@ -398,7 +415,7 @@ func (instance *PuzzleInstance) GetHiddenSingleRow(cell *Cell) int {
 func (instance *PuzzleInstance) GetHiddenSingleColumn(cell *Cell) int {
 	on := cell.candidates
 	instance.ForInColumn(cell, func(other *Cell) bool {
-		if !other.HasValue() {
+		if other.Empty() {
 			on.Remove(other.candidates.Value)
 			if on.Count == 0 {
 				return false
@@ -420,7 +437,7 @@ func (instance *PuzzleInstance) SolveHiddenSingles(max int) int {
 
 func (instance *PuzzleInstance) RemovePointingCandidates(max int) int {
 	// If in a box all candidates of a certain digit are confined to a row or column, that digit cannot appear outside of that box in that row or column.
-	removes := 0
+	removed := 0
 
 	for i := range instance.cells {
 		cell := &instance.cells[i]
@@ -435,7 +452,7 @@ func (instance *PuzzleInstance) RemovePointingCandidates(max int) int {
 
 		// remove candidates that are not shared
 		instance.ForInBox(cell, func(other *Cell) bool {
-			if !other.HasValue() {
+			if other.Empty() {
 				if other.row == cell.row {
 					row.And(other.candidates.Value)
 				}
@@ -449,7 +466,7 @@ func (instance *PuzzleInstance) RemovePointingCandidates(max int) int {
 
 		// remove candidates that exist outside the row or column
 		instance.ForInBox(cell, func(other *Cell) bool {
-			if !other.HasValue() {
+			if other.Empty() {
 				if other.row != cell.row && other.col != cell.col {
 					row.Remove(other.candidates.Value)
 					col.Remove(other.candidates.Value)
@@ -462,25 +479,33 @@ func (instance *PuzzleInstance) RemovePointingCandidates(max int) int {
 		// what is remaining are candidates confined to the cells row in the box
 		if row.Count > 0 {
 			instance.ForInRow(cell, func(other *Cell) bool {
-				if !other.HasValue() && other.box != cell.box {
-					removes += other.candidates.Remove(row.Value)
+				if other.Empty() && other.box != cell.box {
+					removed += other.candidates.Remove(row.Value)
 				}
 				return true
 			})
+		}
+
+		if max > 0 && removed >= max {
+			break
 		}
 
 		// what is remaining are candidates confined to the cells column in the box
 		if col.Count > 0 {
 			instance.ForInColumn(cell, func(other *Cell) bool {
-				if !other.HasValue() && other.box != cell.box {
-					removes += other.candidates.Remove(col.Value)
+				if other.Empty() && other.box != cell.box {
+					removed += other.candidates.Remove(col.Value)
 				}
 				return true
 			})
 		}
+
+		if max > 0 && removed >= max {
+			break
+		}
 	}
 
-	return removes
+	return removed
 }
 
 func (instance *PuzzleInstance) RemoveClaimingCandidates(max int) int {
@@ -500,7 +525,7 @@ func (instance *PuzzleInstance) RemoveClaimingCandidates(max int) int {
 
 		// remove candidates from row that exist in the cells row outside the box
 		instance.ForInRow(cell, func(other *Cell) bool {
-			if !other.HasValue() && other.box != cell.box {
+			if other.Empty() && other.box != cell.box {
 				row.Remove(other.candidates.Value)
 			}
 
@@ -509,7 +534,7 @@ func (instance *PuzzleInstance) RemoveClaimingCandidates(max int) int {
 
 		// remove candidates from column that exist in the cells column outside the box
 		instance.ForInColumn(cell, func(other *Cell) bool {
-			if !other.HasValue() && other.box != cell.box {
+			if other.Empty() && other.box != cell.box {
 				col.Remove(other.candidates.Value)
 			}
 
@@ -519,7 +544,7 @@ func (instance *PuzzleInstance) RemoveClaimingCandidates(max int) int {
 		// what is remaining are the candidates unique to the row/column outside this box
 		if row.Count > 0 || col.Count > 0 {
 			instance.ForInBox(cell, func(other *Cell) bool {
-				if !other.HasValue() {
+				if other.Empty() {
 					if row.Count > 0 && other.row != cell.row {
 						removed += other.candidates.Remove(row.Value)
 					}
@@ -529,6 +554,110 @@ func (instance *PuzzleInstance) RemoveClaimingCandidates(max int) int {
 				}
 				return true
 			})
+		}
+
+		if max > 0 && removed >= max {
+			break
+		}
+	}
+
+	return removed
+}
+
+func (instance *PuzzleInstance) RemoveHiddenSubsetCandidates(max int) int {
+	removed := 0
+	// subsets := [2]int{2, 3}
+
+	// for _, subsetSize := range subsets {
+	// 	for i := range instance.cells {
+	// 		cell := &instance.cells[i]
+	// 		if cell.HasValue() {
+	// 			continue
+	// 		}
+
+	// 	}
+	// }
+
+	return removed
+}
+
+func (instance *PuzzleInstance) RemoveNakedSubsetCandidates(max int) int {
+	removed := 0
+	subsets := [2]int{2, 3}
+
+	for _, subsetSize := range subsets {
+		for i := range instance.cells {
+			cell := &instance.cells[i]
+			if cell.HasValue() || cell.candidates.Count != subsetSize {
+				continue
+			}
+
+			candidates := cell.candidates.Value
+			rowMatches := 1
+
+			instance.ForInRow(cell, func(other *Cell) bool {
+				if other.Empty() && other.candidates.Value == candidates {
+					rowMatches++
+				}
+				return rowMatches <= subsetSize
+			})
+
+			if rowMatches == subsetSize {
+				instance.ForInRow(cell, func(other *Cell) bool {
+					if other.Empty() && other.candidates.Value != candidates {
+						removed += other.candidates.Remove(candidates)
+					}
+					return true
+				})
+
+				if max > 0 && removed >= max {
+					break
+				}
+			}
+
+			colMatches := 1
+
+			instance.ForInColumn(cell, func(other *Cell) bool {
+				if other.Empty() && other.candidates.Value == candidates {
+					colMatches++
+				}
+				return colMatches <= subsetSize
+			})
+
+			if colMatches == subsetSize {
+				instance.ForInColumn(cell, func(other *Cell) bool {
+					if other.Empty() && other.candidates.Value != candidates {
+						removed += other.candidates.Remove(candidates)
+					}
+					return true
+				})
+
+				if max > 0 && removed >= max {
+					break
+				}
+			}
+
+			boxMatches := 1
+
+			instance.ForInBox(cell, func(other *Cell) bool {
+				if other.Empty() && other.candidates.Value == candidates {
+					boxMatches++
+				}
+				return boxMatches <= subsetSize
+			})
+
+			if boxMatches == subsetSize {
+				instance.ForInBox(cell, func(other *Cell) bool {
+					if other.Empty() && other.candidates.Value != candidates {
+						removed += other.candidates.Remove(candidates)
+					}
+					return true
+				})
+
+				if max > 0 && removed >= max {
+					break
+				}
+			}
 		}
 	}
 
@@ -568,10 +697,19 @@ func (instance *PuzzleInstance) Solve() int {
 			continue
 		}
 
-		pointing := instance.RemovePointingCandidates(-1)
-		claiming := instance.RemoveClaimingCandidates(-1)
+		if instance.RemovePointingCandidates(1) > 0 {
+			continue
+		}
 
-		if pointing > 0 || claiming > 0 {
+		if instance.RemoveClaimingCandidates(1) > 0 {
+			continue
+		}
+
+		if instance.RemoveHiddenSubsetCandidates(1) > 0 {
+			continue
+		}
+
+		if instance.RemoveNakedSubsetCandidates(1) > 0 {
 			continue
 		}
 
@@ -621,14 +759,20 @@ func (instance *PuzzleInstance) GetRandomUnsolved(random *rand.Rand) *Cell {
 	})
 }
 
-func (instance *PuzzleInstance) GetRandomPressured(random *rand.Rand) *Cell {
-	minCount := 0
+// The smallest number of candidates in a cell without a value. 0=solved, 1=naked
+func (instance *PuzzleInstance) GetPressure() int {
+	pressure := 0
 	for i := range instance.cells {
 		cell := &instance.cells[i]
-		if !cell.HasValue() && (minCount == 0 || minCount > cell.candidates.Count) {
-			minCount = cell.candidates.Count
+		if !cell.HasValue() && (pressure == 0 || pressure > cell.candidates.Count) {
+			pressure = cell.candidates.Count
 		}
 	}
+	return pressure
+}
+
+func (instance *PuzzleInstance) GetRandomPressured(random *rand.Rand) *Cell {
+	minCount := instance.GetPressure()
 
 	return instance.GetRandom(random, func(other *Cell) bool {
 		return !other.HasValue() && other.candidates.Count == minCount

@@ -2,7 +2,6 @@ package sudogo
 
 import (
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 )
@@ -84,8 +83,7 @@ func TestBits(t *testing.T) {
 }
 
 func TestSolveSimple(t *testing.T) {
-	p := Classic.Create()
-	p.SetAll([][]int{
+	p := Classic.Create([][]int{
 		{5, 3, 0, 0, 7, 0, 0, 0, 0},
 		{6, 0, 0, 1, 9, 5, 0, 0, 0},
 		{0, 9, 8, 0, 0, 0, 0, 6, 0},
@@ -108,8 +106,7 @@ func TestSolveSimple(t *testing.T) {
 }
 
 func TestSolveHiddenSingle(t *testing.T) {
-	p := Classic.Create()
-	p.SetAll([][]int{
+	p := Classic.Create([][]int{
 		{0, 2, 8, 0, 0, 7, 0, 0, 0},
 		{0, 1, 6, 0, 8, 3, 0, 7, 0},
 		{0, 0, 0, 6, 2, 0, 8, 5, 1},
@@ -130,11 +127,37 @@ func TestSolveHiddenSingle(t *testing.T) {
 	}
 }
 
+func TestNakedPair(t *testing.T) {
+	p := Classic.Create([][]int{
+		{7, 0, 0, 8, 4, 9, 0, 3, 0},
+		{9, 2, 8, 1, 3, 5, 0, 0, 6},
+		{4, 0, 0, 2, 6, 7, 0, 8, 9},
+		{6, 4, 2, 7, 8, 3, 9, 5, 1},
+		{3, 9, 7, 4, 5, 1, 6, 2, 8},
+		{8, 1, 5, 6, 9, 2, 3, 0, 0},
+		{2, 0, 4, 5, 1, 6, 0, 9, 3},
+		{1, 0, 0, 0, 0, 8, 0, 6, 0},
+		{5, 0, 0, 0, 0, 4, 0, 1, 0},
+	})
+
+	r8c2 := p.Get(1, 7)
+
+	c0 := fmt.Sprint(r8c2.Candidates())
+	if c0 != "[3 7]" {
+		t.Fatalf("Candidates for r8c2 are not [3 7] they are %s", c0)
+	}
+
+	p.RemoveNakedSubsetCandidates(1)
+
+	c1 := fmt.Sprint(r8c2.Candidates())
+	if c1 != "[7]" {
+		t.Fatalf("Candidates for r8c2 are not [7] they are %s", c1)
+	}
+}
+
 func TestGenerate(t *testing.T) {
-	p := Classic.Create()
-	random := rand.New(rand.NewSource(time.Now().Unix()))
 	start := time.Now()
-	p.Generate(random)
+	p := Classic.Generate()
 	duration := time.Since(start)
 	fmt.Printf("TestGenerate in %s\n", duration)
 	p.Print()
