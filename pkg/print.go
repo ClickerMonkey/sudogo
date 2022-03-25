@@ -16,23 +16,34 @@ func (instance *PuzzleInstance) ToString() string {
 	cellTop := strings.Repeat("-", cellSpace)
 	cellsWide := instance.puzzle.Width()
 	cellsHigh := instance.puzzle.Height()
+	boxWidth := instance.puzzle.BoxSize.Width
+	boxHeight := instance.puzzle.BoxSize.Height
 	s := ""
 
 	appendRow := func() {
 		for x := 0; x < cellsWide; x++ {
-			s += "+" + cellTop
+			if x%boxWidth == 0 {
+				s += "+"
+			}
+			s += cellTop
 		}
 		s += "+\n"
 	}
 
 	for y := 0; y < cellsHigh; y++ {
-		appendRow()
+		if y%boxHeight == 0 {
+			appendRow()
+		}
+
 		for x := 0; x < cellsWide; x++ {
 			cell := instance.Get(x, y)
+			if x%boxWidth == 0 {
+				s += "|"
+			}
 			if cell.value != 0 {
-				s += "|" + strconv.Itoa(cell.value)
+				s += strconv.Itoa(cell.value)
 			} else {
-				s += "|" + cellEmpty
+				s += cellEmpty
 			}
 		}
 		s += "|\n"
