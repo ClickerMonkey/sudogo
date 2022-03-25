@@ -1,11 +1,11 @@
 package sudogo
 
 type Puzzle struct {
-	kind  *PuzzleKind
+	kind  *Kind
 	cells []Cell
 }
 
-func New(kind *PuzzleKind) Puzzle {
+func New(kind *Kind) Puzzle {
 	boxsWide := kind.Boxs.Width
 	boxsHigh := kind.Boxs.Height
 	boxWidth := kind.BoxSize.Width

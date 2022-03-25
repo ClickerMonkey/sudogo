@@ -6,51 +6,51 @@ import (
 
 type Constraint func(puzzle *Puzzle) bool
 
-type PuzzleKind struct {
+type Kind struct {
 	Boxs        Size
 	BoxSize     Size
 	Constraints []Constraint
 }
 
-func (kind *PuzzleKind) Width() int {
+func (kind *Kind) Width() int {
 	return kind.BoxSize.Width * kind.Boxs.Width
 }
 
-func (kind *PuzzleKind) Height() int {
+func (kind *Kind) Height() int {
 	return kind.BoxSize.Height * kind.Boxs.Height
 }
 
-func (kind *PuzzleKind) Digits() int {
+func (kind *Kind) Digits() int {
 	return kind.BoxSize.Area()
 }
 
-func (kind *PuzzleKind) Area() int {
+func (kind *Kind) Area() int {
 	return kind.Width() * kind.Height()
 }
 
-func (kind *PuzzleKind) DigitsSize() int {
+func (kind *Kind) DigitsSize() int {
 	return int(math.Floor(math.Log10(float64(kind.Digits())))) + 1
 }
 
-func (kind *PuzzleKind) DefaultCandidates() uint64 {
+func (kind *Kind) DefaultCandidates() uint64 {
 	return uint64((1 << (kind.Digits() + 1)) - 1)
 }
 
-func (kind *PuzzleKind) Empty() Puzzle {
+func (kind *Kind) Empty() Puzzle {
 	return New(kind)
 }
 
-func (kind *PuzzleKind) Create(values [][]int) Puzzle {
+func (kind *Kind) Create(values [][]int) Puzzle {
 	instance := New(kind)
 	instance.SetAll(values)
 	return instance
 }
 
-func (kind *PuzzleKind) Generator() Generator {
+func (kind *Kind) Generator() Generator {
 	return NewGenerator(kind)
 }
 
-var Classic = &PuzzleKind{
+var Classic = &Kind{
 	Boxs:    Size{3, 3},
 	BoxSize: Size{3, 3},
 }

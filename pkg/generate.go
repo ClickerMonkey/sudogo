@@ -6,20 +6,20 @@ import (
 )
 
 type Generator struct {
-	kind   *PuzzleKind
+	kind   *Kind
 	solver Solver
 	random *rand.Rand
 }
 
-func NewGenerator(kind *PuzzleKind) Generator {
+func NewGenerator(kind *Kind) Generator {
 	return NewSeededGenerator(kind, time.Now().Unix())
 }
 
-func NewSeededGenerator(kind *PuzzleKind, seed int64) Generator {
+func NewSeededGenerator(kind *Kind, seed int64) Generator {
 	return NewRandomGenerator(kind, rand.New(rand.NewSource(seed)))
 }
 
-func NewRandomGenerator(kind *PuzzleKind, random *rand.Rand) Generator {
+func NewRandomGenerator(kind *Kind, random *rand.Rand) Generator {
 	return Generator{kind, NewSolver(kind.Empty()), random}
 }
 
