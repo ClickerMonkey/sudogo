@@ -1,42 +1,68 @@
 package sudogo
 
-import "math/rand"
+import (
+	"math/rand"
+	"time"
+)
 
-func (instance *PuzzleInstance) GetUnsolved() *Cell {
-	if len(instance.unsolved) == 0 {
-		return nil
-	} else {
-		return instance.unsolved[0]
-	}
+type Generator struct {
+	kind   *PuzzleKind
+	solver Solver
+	random *rand.Rand
 }
 
-func (instance *PuzzleInstance) GetRandomUnsolved(random *rand.Rand) *Cell {
-	n := len(instance.unsolved)
-	if n == 0 {
-		return nil
-	}
-	i := random.Intn(n)
-	return instance.unsolved[i]
+func NewGenerator(kind *PuzzleKind) Generator {
+	return NewSeededGenerator(kind, time.Now().Unix())
 }
 
-func (instance *PuzzleInstance) GetRandom(random *rand.Rand, match func(other *Cell) bool) *Cell {
-	matches := int32(0)
-	for i := range instance.cells {
-		cell := &instance.cells[i]
-		if match(cell) {
+func NewSeededGenerator(kind *PuzzleKind, seed int64) Generator {
+	return NewRandomGenerator(kind, rand.New(rand.NewSource(seed)))
+}
+
+func NewRandomGenerator(kind *PuzzleKind, random *rand.Rand) Generator {
+	return Generator{kind, NewSolver(kind.Empty()), random}
+}
+
+func (gen *Generator) Reset() {
+	gen.solver = NewSolver(gen.kind.Empty())
+}
+
+func (gen *Generator) Puzzle() *Puzzle {
+	return &gen.solver.puzzle
+}
+
+func (gen *Generator) Solver() *Solver {
+	return &gen.solver
+}
+
+func (gen *Generator) IsComplete() bool {
+	return gen.solver.Solved()
+}
+
+func (gen *Generator) GetUnsolved() *CellGroups {
+	return pointerAt(gen.solver.unsolved, 0)
+}
+
+func (gen *Generator) GetRandomUnsolved() *CellGroups {
+	return randomPointer(gen.random, gen.solver.unsolved)
+}
+
+func (gen *Generator) GetRandom(match func(other *Cell) bool) *CellGroups {
+	matches := 0
+	for _, group := range gen.solver.cells {
+		if match(group.cell) {
 			matches++
 		}
 	}
 	if matches == 0 {
 		return nil
 	}
-	chosen := random.Int31n(matches)
-	for i := range instance.cells {
-		cell := &instance.cells[i]
-		if match(cell) {
+	chosen := gen.random.Intn(matches)
+	for _, group := range gen.solver.cells {
+		if match(group.cell) {
 			chosen--
 			if chosen < 0 {
-				return cell
+				return &group
 			}
 		}
 	}
@@ -44,40 +70,53 @@ func (instance *PuzzleInstance) GetRandom(random *rand.Rand, match func(other *C
 }
 
 // The smallest number of candidates in a cell without a value. 0=solved, 1=naked
-func (instance *PuzzleInstance) GetPressure() int {
+func (gen *Generator) GetPressure() int {
 	pressure := 0
-	for i := range instance.unsolved {
-		cell := instance.unsolved[i]
-		if pressure == 0 || pressure > cell.candidates.Count {
-			pressure = cell.candidates.Count
+	for _, group := range gen.solver.unsolved {
+		if pressure == 0 || pressure > group.cell.candidates.Count {
+			pressure = group.cell.candidates.Count
 		}
 	}
 	return pressure
 }
 
-func (instance *PuzzleInstance) GetRandomPressured(random *rand.Rand) *Cell {
-	minCount := instance.GetPressure()
+func (gen *Generator) GetRandomPressured() *CellGroups {
+	minCount := gen.GetPressure()
 
-	return instance.GetRandom(random, func(other *Cell) bool {
+	return gen.GetRandom(func(other *Cell) bool {
 		return other.Empty() && other.candidates.Count == minCount
 	})
 }
 
-func (instance *PuzzleInstance) Generate(random *rand.Rand) bool {
-	for !instance.Solved() {
-		instance.Solve()
+func (gen *Generator) Attempt() *Puzzle {
+	for !gen.IsComplete() {
+		gen.solver.Solve()
 
-		if instance.Solved() {
+		if gen.IsComplete() {
 			break
 		}
 
-		rnd := instance.GetRandomUnsolved(random)
-
-		if rnd == nil || rnd.candidates.Count == 0 {
-			return false
+		if gen.GetPressure() == 0 {
+			return nil
 		}
 
-		instance.SetCell(rnd, *randomItem[int](random, rnd.Candidates()))
+		randomGroup := gen.GetRandomUnsolved()
+		randomValue := randomElement[int](gen.random, randomGroup.cell.Candidates(), 0)
+
+		gen.solver.SetGroup(randomGroup, randomValue)
 	}
-	return true
+	return gen.Puzzle()
+}
+
+func (gen *Generator) Generate(tries int) *Puzzle {
+	var generated *Puzzle = nil
+	for i := 0; i < tries; i++ {
+		generated = gen.Attempt()
+		if generated != nil {
+			return generated
+		} else {
+			gen.Reset()
+		}
+	}
+	return nil
 }

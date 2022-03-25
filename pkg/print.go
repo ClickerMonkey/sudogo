@@ -6,18 +6,18 @@ import (
 	"strings"
 )
 
-func (instance *PuzzleInstance) Print() {
+func (instance *Puzzle) Print() {
 	print(instance.ToString())
 }
 
-func (instance *PuzzleInstance) ToString() string {
-	cellSpace := instance.puzzle.DigitsSize()
+func (instance *Puzzle) ToString() string {
+	cellSpace := instance.kind.DigitsSize()
 	cellEmpty := strings.Repeat(" ", cellSpace)
 	cellTop := strings.Repeat("-", cellSpace)
-	cellsWide := instance.puzzle.Width()
-	cellsHigh := instance.puzzle.Height()
-	boxWidth := instance.puzzle.BoxSize.Width
-	boxHeight := instance.puzzle.BoxSize.Height
+	cellsWide := instance.kind.Width()
+	cellsHigh := instance.kind.Height()
+	boxWidth := instance.kind.BoxSize.Width
+	boxHeight := instance.kind.BoxSize.Height
 	s := ""
 
 	appendRow := func() {
@@ -54,7 +54,7 @@ func (instance *PuzzleInstance) ToString() string {
 	return s
 }
 
-func (instance *PuzzleInstance) PrintCells() {
+func (instance *Puzzle) PrintCells() {
 	print(instance.ToCellsString())
 }
 
@@ -67,7 +67,7 @@ func (cell *Cell) ToString() string {
 	return fmt.Sprintf("{%d,%d} = %s %s", cell.col, cell.row, cellValue, fmt.Sprint(cell.Candidates()))
 }
 
-func (instance *PuzzleInstance) ToCellsString() string {
+func (instance *Puzzle) ToCellsString() string {
 	s := ""
 
 	for i := range instance.cells {
