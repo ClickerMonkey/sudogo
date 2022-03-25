@@ -78,7 +78,7 @@ func TestNakedPair(t *testing.T) {
 		t.Fatalf("Candidates for r8c2 are not [3 7] they are %s", c0)
 	}
 
-	s.RemoveNakedSubsetCandidates(1)
+	StepRemoveNakedSubsetCandidates(&s, 1)
 
 	c1 := fmt.Sprint(r8c2.Candidates())
 	if c1 != "[7]" {
