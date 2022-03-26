@@ -24,7 +24,6 @@ func New(kind *Kind) Puzzle {
 		cell.col = i % cellsWide
 		cell.box = ((cell.row / boxsHigh) * boxHeight) + (cell.col / boxsWide)
 		cell.candidates.Fill(candidates)
-		cell.candidates.Set(0, false)
 	}
 
 	return Puzzle{kind, cells}
@@ -38,6 +37,15 @@ func (puzzle *Puzzle) Clone() Puzzle {
 	copy(cells, puzzle.cells)
 
 	return Puzzle{kind, cells}
+}
+
+func (puzzle *Puzzle) Clear() {
+	candidates := puzzle.kind.Digits()
+	for i := range puzzle.cells {
+		c := &puzzle.cells[i]
+		c.value = 0
+		c.candidates.Fill(candidates)
+	}
 }
 
 func (puzzle *Puzzle) Solver() Solver {
@@ -56,13 +64,12 @@ func (puzzle *Puzzle) SetCell(cell *Cell, value int) bool {
 	set := cell.SetValue(value)
 
 	if set {
-		puzzle.ForInGroup(cell, func(other *Cell) bool {
-			if other.Empty() {
-				other.RemoveCandidate(value)
+		for i := range puzzle.cells {
+			c := &puzzle.cells[i]
+			if c.Empty() && c.InGroup(cell) {
+				c.RemoveCandidate(value)
 			}
-
-			return true
-		})
+		}
 	}
 
 	return set
@@ -73,6 +80,8 @@ func (puzzle *Puzzle) SetAll(values [][]int) int {
 	height := puzzle.kind.Height()
 	sets := 0
 
+	puzzle.Clear()
+
 	for y, row := range values {
 		if y >= height {
 			break
@@ -81,59 +90,11 @@ func (puzzle *Puzzle) SetAll(values [][]int) int {
 			if x >= width {
 				break
 			}
-			if puzzle.Set(x, y, value) {
+			if value > 0 && puzzle.Set(x, y, value) {
 				sets++
 			}
 		}
 	}
 
 	return sets
-}
-
-func (puzzle *Puzzle) ForInGroup(cell *Cell, call func(other *Cell) bool) bool {
-	for i := range puzzle.cells {
-		c := &puzzle.cells[i]
-		if cell.InGroup(c) {
-			if !call(c) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func (puzzle *Puzzle) ForInBox(cell *Cell, call func(other *Cell) bool) bool {
-	for i := range puzzle.cells {
-		c := &puzzle.cells[i]
-		if cell.InBox(c) {
-			if !call(c) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func (puzzle *Puzzle) ForInRow(cell *Cell, call func(other *Cell) bool) bool {
-	width := puzzle.kind.Width()
-	start := cell.row * width
-
-	for i := 0; i < width; i++ {
-		if cell.col != i && !call(&puzzle.cells[i+start]) {
-			return false
-		}
-	}
-	return true
-}
-
-func (puzzle *Puzzle) ForInColumn(cell *Cell, call func(other *Cell) bool) bool {
-	width := puzzle.kind.Width()
-	height := puzzle.kind.Height()
-
-	for i := 0; i < height; i++ {
-		if cell.row != i && !call(&puzzle.cells[i*width+cell.col]) {
-			return false
-		}
-	}
-	return true
 }

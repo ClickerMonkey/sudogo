@@ -30,6 +30,7 @@ var StandardSolveSteps = []SolveStep{
 	StepRemovePointingCandidates,
 	StepRemoveClaimingCandidates,
 	StepRemoveNakedSubsetCandidates,
+	StepRemoveHiddenSubsetCandidates,
 }
 
 func NewSolver(starting Puzzle) Solver {
@@ -86,12 +87,17 @@ func (solver *Solver) SetCell(cell *Cell, value int) bool {
 }
 
 func (solver *Solver) SetGroup(group *CellGroups, value int) bool {
-	if group == nil {
+	if group == nil || value <= 0 {
 		return false
 	}
-	set := solver.puzzle.SetCell(group.cell, value)
+	set := group.cell.SetValue(value)
 	if set {
+		for _, other := range group.all {
+			other.RemoveCandidate(value)
+		}
+
 		solver.unsolved = removeValue[*CellGroups](solver.unsolved, group)
+
 		for _, remaining := range solver.unsolved {
 			remaining.Remove(group.cell)
 		}
@@ -198,7 +204,7 @@ func getHiddenSingle(solver *Solver) (*CellGroups, int) {
 
 // Get the candidate hidden single found in the given group, or 0 if none found.
 func getHiddenSingleFromGroup(cell *Cell, group []*Cell) int {
-	on := cell.candidates.Clone()
+	on := cell.candidates
 
 	for _, other := range group {
 		on.Remove(other.candidates)
@@ -234,9 +240,9 @@ func doRemovePointingCandidates(solver *Solver, max int) int {
 	for _, group := range solver.unsolved {
 		cell := group.cell
 		// all candidates in this box's row that are shared
-		row := cell.candidates.Clone()
+		row := cell.candidates
 		// all candidates in this box's column that are shared
-		col := cell.candidates.Clone()
+		col := cell.candidates
 
 		// remove candidates that are not shared
 		for _, other := range group.box {
@@ -301,9 +307,9 @@ func doRemoveClaimingCandidates(solver *Solver, max int) int {
 	for _, group := range solver.unsolved {
 		cell := group.cell
 		// all candidates in this row that are not shared outside of the box
-		row := cell.candidates.Clone()
+		row := cell.candidates
 		// all candidates in this column that are not shared outside of the box
-		col := cell.candidates.Clone()
+		col := cell.candidates
 
 		// remove candidates from row that exist in the cells row outside the box
 		for _, other := range group.row {
@@ -343,14 +349,17 @@ func doRemoveClaimingCandidates(solver *Solver, max int) int {
 // Step: Remove Naked Subset Candidates
 //		http://hodoku.sourceforge.net/en/tech_naked.php
 // ==================================================
-var StepRemoveNakedSubsetCandidates SolveStep = func(solver *Solver, max int) (int, bool) {
-	return 0, doRemoveNakedSubsetCandidates(solver, -1) > 0
+func CreateStepRemoveNakedSubsetCandidates(subsets []int) SolveStep {
+	return func(solver *Solver, max int) (int, bool) {
+		return 0, doRemoveNakedSubsetCandidates(solver, -1, subsets) > 0
+	}
 }
 
+var StepRemoveNakedSubsetCandidates SolveStep = CreateStepRemoveNakedSubsetCandidates([]int{2, 3})
+
 // Find naked subsets and remove them as possible values for shared groups
-func doRemoveNakedSubsetCandidates(solver *Solver, max int) int {
+func doRemoveNakedSubsetCandidates(solver *Solver, max int, subsets []int) int {
 	removed := 0
-	subsets := [2]int{2, 3}
 
 	for _, subsetSize := range subsets {
 		for _, group := range solver.unsolved {
@@ -360,17 +369,17 @@ func doRemoveNakedSubsetCandidates(solver *Solver, max int) int {
 				continue
 			}
 
-			removed += removeNakedSubsetCandidatesFromGroup(cell.candidates, subsetSize, group.row)
+			removed += removeNakedSubsetCandidatesFromGroup(group, subsetSize, group.row)
 			if max > 0 && removed >= max {
 				break
 			}
 
-			removed += removeNakedSubsetCandidatesFromGroup(cell.candidates, subsetSize, group.col)
+			removed += removeNakedSubsetCandidatesFromGroup(group, subsetSize, group.col)
 			if max > 0 && removed >= max {
 				break
 			}
 
-			removed += removeNakedSubsetCandidatesFromGroup(cell.candidates, subsetSize, group.box)
+			removed += removeNakedSubsetCandidatesFromGroup(group, subsetSize, group.box)
 			if max > 0 && removed >= max {
 				break
 			}
@@ -381,22 +390,71 @@ func doRemoveNakedSubsetCandidates(solver *Solver, max int) int {
 }
 
 // Remove naked subsets from group
-func removeNakedSubsetCandidatesFromGroup(candidates Candidates, subsetSize int, group []*Cell) int {
+func removeNakedSubsetCandidatesFromGroup(cellGroup *CellGroups, subsetSize int, group []*Cell) int {
 	removed := 0
 	matches := 1
+	candidates := cellGroup.cell.candidates
+	sameBox := true
+	sameRow := true
+	sameCol := true
 
 	for _, other := range group {
 		if other.candidates.Value == candidates.Value {
 			matches++
+			sameBox = sameBox && other.box == cellGroup.cell.box
+			sameRow = sameRow && other.row == cellGroup.cell.row
+			sameCol = sameCol && other.col == cellGroup.cell.col
 		}
 	}
 
 	if matches == subsetSize {
-		for _, other := range group {
-			if other.candidates.Value != candidates.Value {
-				removed += other.candidates.Remove(candidates)
-			}
+		if sameBox {
+			removed += removeCandidatesFromDifferent(cellGroup.box, candidates)
+		}
+		if sameRow {
+			removed += removeCandidatesFromDifferent(cellGroup.row, candidates)
+		}
+		if sameCol {
+			removed += removeCandidatesFromDifferent(cellGroup.col, candidates)
 		}
 	}
+	return removed
+}
+
+func removeCandidatesFromDifferent(group []*Cell, candidates Candidates) int {
+	removed := 0
+	for _, other := range group {
+		if other.candidates.Value != candidates.Value {
+			removed += other.candidates.Remove(candidates)
+		}
+	}
+	return removed
+}
+
+// ==================================================
+// Step: Remove Hidden Subset Candidates
+//		http://hodoku.sourceforge.net/en/tech_hidden.php
+// ==================================================
+func CreateStepRemoveHiddenSubsetCandidates(subsets []int) SolveStep {
+	return func(solver *Solver, max int) (int, bool) {
+		return 0, doRemoveHiddenSubsetCandidates(solver, -1, subsets) > 0
+	}
+}
+
+var StepRemoveHiddenSubsetCandidates SolveStep = CreateStepRemoveHiddenSubsetCandidates([]int{2, 3})
+
+// Find hidden subsets and remove them as possible values for shared groups
+func doRemoveHiddenSubsetCandidates(solver *Solver, max int, subsets []int) int {
+	removed := 0
+
+	// for _, subsetSize := range subsets {
+	// 	row := Candidates{}
+
+	// 	for _, group := range solver.unsolved {
+	// 		// Hidden subset is if a group of subsetSize has subsetSize numbers in common that are in no other cells in their group
+	// 		// In those cells remove all other candidates
+	// 	}
+	// }
+
 	return removed
 }

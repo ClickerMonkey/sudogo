@@ -32,10 +32,6 @@ func (kind *Kind) DigitsSize() int {
 	return int(math.Floor(math.Log10(float64(kind.Digits())))) + 1
 }
 
-func (kind *Kind) DefaultCandidates() uint64 {
-	return uint64((1 << (kind.Digits() + 1)) - 1)
-}
-
 func (kind *Kind) Empty() Puzzle {
 	return New(kind)
 }
