@@ -28,7 +28,7 @@ var StandardSolveSteps = []SolveStep{
 	StepNakedSingle,
 	StepHiddenSingle,
 	StepRemovePointingCandidates,
-	StepRemoveClaimingCandidates,
+	// StepRemoveClaimingCandidates,
 	StepRemoveNakedSubsetCandidates,
 	StepRemoveHiddenSubsetCandidates,
 }
@@ -105,16 +105,18 @@ func (solver *Solver) SetGroup(group *CellGroups, value int) bool {
 	return set
 }
 
-func (solver *Solver) DoSets(max int, nextSet func() (*CellGroups, int)) int {
+type SetValueProvider func(solver *Solver) (*CellGroups, int)
+
+func (solver *Solver) DoSets(max int, nextSet SetValueProvider) int {
 	set := 0
-	group, value := nextSet()
+	group, value := nextSet(solver)
 	for group != nil {
 		set++
 		solver.SetGroup(group, value)
 		if max > 0 && set == max {
 			break
 		}
-		group, value = nextSet()
+		group, value = nextSet(solver)
 	}
 	return set
 }
@@ -129,20 +131,25 @@ func (solver *Solver) Solve() bool {
 }
 
 func (solver *Solver) Place(count int) int {
-	placed := 0
 	steps := solver.steps
-	for {
-		placedStart := placed
+	placed := 0
+	remaining := count
+	placing := true
+	for placing {
+		placing = false
 		for _, step := range steps {
-			stepPlaced, stepRestart := step(solver, count)
-			placed += stepPlaced
+			stepPlaced, stepRestart := step(solver, remaining)
 
+			placed += stepPlaced
+			remaining -= stepPlaced
+
+			if stepPlaced > 0 && (count <= 0 || remaining > 0) {
+				placing = true
+			}
 			if stepRestart {
+				placing = true
 				break
 			}
-		}
-		if placedStart == placed {
-			break
 		}
 	}
 
@@ -154,7 +161,7 @@ func (solver *Solver) Place(count int) int {
 // 		http://hodoku.sourceforge.net/en/tech_singles.php
 // ==================================================
 var StepNakedSingle SolveStep = func(solver *Solver, max int) (int, bool) {
-	return doNakedSingles(solver, max), false
+	return solver.DoSets(max, getNakedSingle), false
 }
 
 // A cell which has one possible candidate
@@ -167,19 +174,12 @@ func getNakedSingle(solver *Solver) (*CellGroups, int) {
 	return nil, 0
 }
 
-// Solve N naked singles if that many are available. If max is less than 1 then all singles will be solved.
-func doNakedSingles(solver *Solver, max int) int {
-	return solver.DoSets(max, func() (*CellGroups, int) {
-		return getNakedSingle(solver)
-	})
-}
-
 // ==================================================
 // Step: Hidden Single
 // 		http://hodoku.sourceforge.net/en/tech_singles.php
 // ==================================================
 var StepHiddenSingle SolveStep = func(solver *Solver, max int) (int, bool) {
-	placed := doHiddenSingles(solver, max)
+	placed := solver.DoSets(max, getHiddenSingle)
 	return placed, placed > 0
 }
 
@@ -218,13 +218,6 @@ func getHiddenSingleFromGroup(cell *Cell, group []*Cell) int {
 	return 0
 }
 
-// Solve N hidden singles if that many are available. If max is less than 1 then all singles will be solved.
-func doHiddenSingles(solver *Solver, max int) int {
-	return solver.DoSets(max, func() (*CellGroups, int) {
-		return getHiddenSingle(solver)
-	})
-}
-
 // ==================================================
 // Step: Remove Pointing Candidates
 //		http://hodoku.sourceforge.net/en/tech_intersections.php
@@ -256,8 +249,10 @@ func doRemovePointingCandidates(solver *Solver, max int) int {
 
 		// remove candidates that exist outside the row or column
 		for _, other := range group.box {
-			if other.row != cell.row && other.col != cell.col {
+			if other.row != cell.row {
 				row.Remove(other.candidates)
+			}
+			if other.col != cell.col {
 				col.Remove(other.candidates)
 			}
 		}
@@ -306,10 +301,9 @@ func doRemoveClaimingCandidates(solver *Solver, max int) int {
 
 	for _, group := range solver.unsolved {
 		cell := group.cell
+
 		// all candidates in this row that are not shared outside of the box
 		row := cell.candidates
-		// all candidates in this column that are not shared outside of the box
-		col := cell.candidates
 
 		// remove candidates from row that exist in the cells row outside the box
 		for _, other := range group.row {
@@ -318,6 +312,22 @@ func doRemoveClaimingCandidates(solver *Solver, max int) int {
 			}
 		}
 
+		// what is remaining are the candidates unique to the row outside this box
+		if row.Count > 0 {
+			for _, other := range group.box {
+				if other.row != cell.row {
+					removed += other.candidates.Remove(row)
+				}
+			}
+		}
+
+		if max > 0 && removed >= max {
+			break
+		}
+
+		// all candidates in this column that are not shared outside of the box
+		col := cell.candidates
+
 		// remove candidates from column that exist in the cells column outside the box
 		for _, other := range group.col {
 			if other.box != cell.box {
@@ -325,13 +335,10 @@ func doRemoveClaimingCandidates(solver *Solver, max int) int {
 			}
 		}
 
-		// what is remaining are the candidates unique to the row/column outside this box
-		if row.Count > 0 || col.Count > 0 {
+		// what is remaining are the candidates unique to the column outside this box
+		if col.Count > 0 {
 			for _, other := range group.box {
-				if row.Count > 0 && other.row != cell.row {
-					removed += other.candidates.Remove(row)
-				}
-				if col.Count > 0 && other.col != cell.col {
+				if other.col != cell.col {
 					removed += other.candidates.Remove(col)
 				}
 			}
@@ -368,17 +375,14 @@ func doRemoveNakedSubsetCandidates(solver *Solver, max int, subsets []int) int {
 			if cell.candidates.Count != subsetSize {
 				continue
 			}
-
 			removed += removeNakedSubsetCandidatesFromGroup(group, subsetSize, group.row)
 			if max > 0 && removed >= max {
 				break
 			}
-
 			removed += removeNakedSubsetCandidatesFromGroup(group, subsetSize, group.col)
 			if max > 0 && removed >= max {
 				break
 			}
-
 			removed += removeNakedSubsetCandidatesFromGroup(group, subsetSize, group.box)
 			if max > 0 && removed >= max {
 				break

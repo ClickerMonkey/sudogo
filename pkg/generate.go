@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// Generates puzzles of the given kind using a particular random number generator.
 type Generator struct {
 	kind   *Kind
 	solver Solver
