@@ -19,6 +19,11 @@ var Kind3x2 = &Kind{
 	BoxSize: Size{3, 2},
 }
 
+// A 12x12 puzzle with 12 boxes of 4x3 and digits 1-12.
+var Kind4x3 = &Kind{
+	BoxSize: Size{4, 3},
+}
+
 // A 16x16 puzzle with 16 boxes of 4x4 and digits 1-16.
 var Kind4x4 = &Kind{
 	BoxSize: Size{4, 4},

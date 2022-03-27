@@ -109,15 +109,19 @@ func (gen *Generator) Attempt() *Puzzle {
 	return gen.Puzzle()
 }
 
-func (gen *Generator) Generate(tries int) *Puzzle {
+func (gen *Generator) Attempts(tries int) (*Puzzle, int) {
 	var generated *Puzzle = nil
 	for i := 0; i < tries; i++ {
 		generated = gen.Attempt()
 		if generated != nil {
-			return generated
+			return generated, i
 		} else {
 			gen.Reset()
 		}
 	}
-	return nil
+	return nil, tries
+}
+
+func (gen *Generator) Generate() (*Puzzle, int) {
+	return gen.Attempts(1 << 14)
 }

@@ -10,14 +10,14 @@ func TestGenerate(t *testing.T) {
 	g := Classic.Generator()
 
 	start := time.Now()
-	p := g.Generate(128)
+	p, attempts := g.Generate()
 
 	if p == nil {
-		t.Fatalf("Failed to generate a puzzle in 128 tries")
+		t.Fatalf("Failed to generate a puzzle")
 	} else {
 		p.Print()
 	}
 
 	duration := time.Since(start)
-	fmt.Printf("TestGenerate in %s\n", duration)
+	fmt.Printf("TestGenerate in %s after %d attempts.\n", duration, attempts)
 }
