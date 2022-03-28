@@ -76,19 +76,8 @@ func (gen *Generator) GetRandom(match func(other *Cell) bool) *CellGroups {
 	return nil
 }
 
-// The smallest number of candidates in a cell without a value. 0=solved, 1=naked
-func (gen *Generator) GetPressure() int {
-	pressure := 0
-	for _, group := range gen.solver.unsolved {
-		if pressure == 0 || pressure > group.cell.candidates.Count {
-			pressure = group.cell.candidates.Count
-		}
-	}
-	return pressure
-}
-
 func (gen *Generator) GetRandomPressured() *CellGroups {
-	minCount := gen.GetPressure()
+	minCount := gen.solver.GetMinCandidateCount()
 
 	return gen.GetRandom(func(other *Cell) bool {
 		return other.Empty() && other.candidates.Count == minCount
@@ -103,7 +92,7 @@ func (gen *Generator) Attempt() *Puzzle {
 			break
 		}
 
-		if gen.GetPressure() == 0 {
+		if gen.solver.GetMinCandidateCount() == 0 {
 			return nil
 		}
 
@@ -130,4 +119,72 @@ func (gen *Generator) Attempts(tries int) (*Puzzle, int) {
 
 func (gen *Generator) Generate() (*Puzzle, int) {
 	return gen.Attempts(1 << 14)
+}
+
+func (gen *Generator) ClearCells(count int, symmetric bool, attempts int) (cleared bool, actualAttempts int) {
+	initialAttempts := attempts
+	attempt := gen.ClearCellsAttempt(count, symmetric)
+	attempts--
+	for attempt == nil && attempts != 0 {
+		attempt = gen.ClearCellsAttempt(count, symmetric)
+		attempts--
+	}
+	found := attempt != nil
+	if found {
+		gen.solver.puzzle.SetAll(attempt.GetAll())
+	}
+	return found, initialAttempts - attempts
+}
+
+func (gen *Generator) ClearCellsAttempt(count int, symmetric bool) *Puzzle {
+	cleared := 0
+	puzzle := gen.solver.puzzle
+	max := puzzle.kind.Size() - 1
+	n := len(puzzle.cells)
+	filled := make([]*Cell, 0, n)
+	for i := range puzzle.cells {
+		cell := &puzzle.cells[i]
+		if cell.HasValue() {
+			filled = append(filled, cell)
+		}
+	}
+
+	for cleared < count {
+		next := puzzle.Clone()
+
+		cell := randomPointer(gen.random, filled)
+		next.Remove(cell.col, cell.row)
+
+		cellSymmetric := puzzle.Get(max-cell.col, max-cell.row)
+		doSymmetric := symmetric && cellSymmetric.HasValue()
+
+		if doSymmetric {
+			next.Remove(cellSymmetric.col, cellSymmetric.row)
+		}
+
+		if next.HasUniqueSolution() {
+			if puzzle.RemoveCell(cell) {
+				cleared++
+
+				if doSymmetric && puzzle.RemoveCell(cellSymmetric) {
+					cleared++
+				}
+			}
+		}
+
+		filled = removeValue(filled, cell)
+		if doSymmetric {
+			filled = removeValue(filled, cellSymmetric)
+		}
+
+		if len(filled) == 0 {
+			break
+		}
+	}
+
+	if cleared >= count {
+		return &puzzle
+	}
+
+	return nil
 }

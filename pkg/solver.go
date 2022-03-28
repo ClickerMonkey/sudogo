@@ -39,7 +39,8 @@ var GenerateSolveSteps = []SolveStep{
 	StepHiddenSingle,
 	StepRemovePointingCandidates,
 	StepRemoveClaimingCandidates,
-	StepRemoveNakedSubsetCandidates,
+	StepRemoveNakedSubsetCandidates2,
+	StepRemoveNakedSubsetCandidates3,
 }
 
 func NewSolver(starting Puzzle) Solver {
@@ -112,6 +113,25 @@ func (solver *Solver) SetGroup(group *CellGroups, value int) bool {
 		}
 	}
 	return set
+}
+
+func (solver *Solver) GetMinCandidateCount() int {
+	min := 0
+	for _, group := range solver.unsolved {
+		if min == 0 || min > group.cell.candidates.Count {
+			min = group.cell.candidates.Count
+		}
+	}
+	return min
+}
+
+func (solver *Solver) GetGroupWhere(where func(group *CellGroups) bool) *CellGroups {
+	for _, group := range solver.unsolved {
+		if where(group) {
+			return group
+		}
+	}
+	return nil
 }
 
 type SetValueProvider func(solver *Solver) (*CellGroups, int)
@@ -373,7 +393,10 @@ func CreateStepRemoveNakedSubsetCandidates(subsets []int) SolveStep {
 	}
 }
 
-var StepRemoveNakedSubsetCandidates SolveStep = CreateStepRemoveNakedSubsetCandidates([]int{2, 3})
+var StepRemoveNakedSubsetCandidates SolveStep = CreateStepRemoveNakedSubsetCandidates([]int{2, 3, 4})
+var StepRemoveNakedSubsetCandidates2 SolveStep = CreateStepRemoveNakedSubsetCandidates([]int{2})
+var StepRemoveNakedSubsetCandidates3 SolveStep = CreateStepRemoveNakedSubsetCandidates([]int{3})
+var StepRemoveNakedSubsetCandidates4 SolveStep = CreateStepRemoveNakedSubsetCandidates([]int{4})
 
 // Find naked subsets and remove them as possible values for shared groups
 func doRemoveNakedSubsetCandidates(solver *Solver, max int, subsets []int) int {
@@ -502,7 +525,10 @@ func CreateStepRemoveHiddenSubsetCandidates(subsets []int) SolveStep {
 	}
 }
 
-var StepRemoveHiddenSubsetCandidates SolveStep = CreateStepRemoveHiddenSubsetCandidates([]int{2, 3})
+var StepRemoveHiddenSubsetCandidates SolveStep = CreateStepRemoveHiddenSubsetCandidates([]int{2, 3, 4})
+var StepRemoveHiddenSubsetCandidates2 SolveStep = CreateStepRemoveHiddenSubsetCandidates([]int{2})
+var StepRemoveHiddenSubsetCandidates3 SolveStep = CreateStepRemoveHiddenSubsetCandidates([]int{3})
+var StepRemoveHiddenSubsetCandidates4 SolveStep = CreateStepRemoveHiddenSubsetCandidates([]int{4})
 
 // Find hidden subsets and remove them as possible values for shared groups
 func doRemoveHiddenSubsetCandidates(solver *Solver, max int, subsets []int) int {
@@ -563,7 +589,7 @@ func doRemoveHiddenSubset(dist *candidateDistribution, max int, subsets []int) i
 				matchCandidates := Candidates{}
 				matchCandidates.Set(list.candidate, true)
 
-				for otherIndex := listIndex + 1; otherIndex < n; otherIndex++ {
+				for otherIndex := 0; otherIndex < n; otherIndex++ {
 					other := dist.candidates[otherIndex]
 
 					if other.size > 0 && other.size <= subsetSize && list.isSubset(other) {

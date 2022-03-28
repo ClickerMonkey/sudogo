@@ -3,6 +3,7 @@ package sudogo
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestSolveSimple(t *testing.T) {
@@ -277,6 +278,41 @@ func TestHiddenPair(t *testing.T) {
 				},
 			},
 		},
+		{
+			puzzle: Classic.Create([][]int{
+				{2, 8, 0, 0, 0, 0, 4, 7, 3},
+				{5, 3, 4, 8, 2, 7, 1, 9, 6},
+				{0, 7, 1, 0, 3, 4, 0, 8, 0},
+				{3, 0, 0, 5, 0, 0, 0, 4, 0},
+				{0, 0, 0, 3, 4, 0, 0, 6, 0},
+				{4, 6, 0, 7, 9, 0, 3, 1, 0},
+				{0, 9, 0, 2, 0, 3, 6, 5, 4},
+				{0, 0, 3, 0, 0, 9, 8, 2, 1},
+				{0, 0, 0, 0, 8, 0, 9, 3, 7},
+			}),
+			subsets: []int{3},
+			max:     1,
+			tests: []CandidateTest{
+				{
+					column: 1,
+					row:    7,
+					before: "[4 5]",
+					after:  "[4 5]",
+				},
+				{
+					column: 1,
+					row:    8,
+					before: "[1 2 4 5]",
+					after:  "[2 4 5]",
+				},
+				{
+					column: 2,
+					row:    8,
+					before: "[2 5 6]",
+					after:  "[2 5]",
+				},
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -310,27 +346,59 @@ func TestHiddenPair(t *testing.T) {
 }
 
 func TestSolveHard(t *testing.T) {
-	original := Classic.Create([][]int{
-		{0, 0, 0, 1, 0, 2, 0, 0, 0},
-		{0, 6, 0, 0, 0, 8, 3, 0, 0},
-		{5, 0, 0, 0, 0, 0, 0, 0, 9},
-		{0, 0, 0, 4, 0, 7, 0, 0, 8},
-		{6, 8, 0, 0, 0, 0, 0, 0, 0},
-		{0, 0, 4, 0, 0, 0, 0, 1, 0},
-		{0, 2, 0, 0, 0, 0, 5, 0, 0},
-		{0, 0, 0, 0, 7, 1, 2, 0, 6},
-		{0, 9, 0, 0, 0, 6, 7, 0, 0},
-	})
-
-	s := original.Solver()
-	solution, solved := s.Solve()
-
-	if !solved {
-		solution.PrintCandidates()
-		t.Fatal("Could not SolveHard puzzle")
+	// https://www.thonky.com/sudoku/solution-count
+	tests := []struct {
+		puzzle    Puzzle
+		max       int
+		solutions int
+	}{
+		{
+			puzzle: Classic.Create([][]int{
+				{0, 0, 0, 1, 0, 2, 0, 0, 0},
+				{0, 6, 0, 0, 0, 8, 3, 0, 0},
+				{5, 0, 0, 0, 0, 0, 0, 0, 9},
+				{0, 0, 0, 4, 0, 7, 0, 0, 8},
+				{6, 8, 0, 0, 0, 0, 0, 0, 0},
+				{0, 0, 4, 0, 0, 0, 0, 1, 0},
+				{0, 2, 0, 0, 0, 0, 5, 0, 0},
+				{0, 0, 0, 0, 7, 1, 2, 0, 6},
+				{0, 9, 0, 0, 0, 6, 7, 0, 0},
+			}),
+			max:       -1,
+			solutions: 13,
+		},
+		{
+			puzzle: Classic.Create([][]int{
+				{0, 0, 0, 1, 0, 2, 0, 0, 0},
+				{0, 6, 0, 0, 0, 8, 3, 0, 0},
+				{5, 0, 0, 0, 0, 0, 0, 0, 9},
+				{0, 0, 0, 4, 0, 7, 0, 0, 8},
+				{6, 8, 0, 0, 0, 0, 0, 0, 0},
+				{0, 0, 4, 0, 0, 0, 0, 1, 0},
+				{0, 2, 0, 0, 0, 0, 5, 0, 0},
+				{0, 0, 0, 0, 7, 1, 2, 0, 6},
+				{0, 9, 0, 0, 0, 6, 7, 8, 0},
+			}),
+			max:       -1,
+			solutions: 1,
+		},
 	}
 
-	checkValid(solution, t)
+	for _, test := range tests {
+		start := time.Now()
+		solutions := test.puzzle.GetSolutions(test.max)
+		duration := time.Since(start)
+
+		if len(solutions) != test.solutions {
+			t.Errorf("An invalid number of solutions found %d expected %d in %s for %s.", len(solutions), test.solutions, duration, test.puzzle.UniqueId())
+		}
+
+		fmt.Printf("Solutions: %d in %s\n", len(solutions), duration)
+
+		for _, solution := range solutions {
+			checkValid(solution, t)
+		}
+	}
 }
 
 func checkValid(puzzle *Puzzle, t *testing.T) {

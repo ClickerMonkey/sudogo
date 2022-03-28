@@ -1,5 +1,10 @@
 package sudogo
 
+import (
+	"fmt"
+	"strings"
+)
+
 type Puzzle struct {
 	kind  *Kind
 	cells []Cell
@@ -52,6 +57,28 @@ func (puzzle *Puzzle) Get(col int, row int) *Cell {
 
 func (puzzle *Puzzle) Set(col int, row int, value int) bool {
 	return puzzle.SetCell(puzzle.Get(col, row), value)
+}
+
+func (puzzle *Puzzle) Remove(col int, row int) bool {
+	return puzzle.RemoveCell(&puzzle.cells[row*puzzle.kind.Size()+col])
+}
+
+func (puzzle *Puzzle) RemoveCell(cell *Cell) bool {
+	removed := cell.HasValue()
+	if removed {
+		cell.value = 0
+		cell.candidates = puzzle.GetCandidatesFor(cell)
+
+		for i := range puzzle.cells {
+			other := &puzzle.cells[i]
+			if cell.InGroup(other) {
+				if other.Empty() {
+					other.candidates = puzzle.GetCandidatesFor(other)
+				}
+			}
+		}
+	}
+	return removed
 }
 
 func (puzzle *Puzzle) SetCell(cell *Cell, value int) bool {
@@ -192,6 +219,20 @@ func (puzzle *Puzzle) IsSolved() bool {
 	return true
 }
 
+func (puzzle *Puzzle) GetCandidatesFor(cell *Cell) Candidates {
+	candidates := Candidates{}
+	candidates.Fill(puzzle.kind.Size())
+
+	for k := range puzzle.cells {
+		other := &puzzle.cells[k]
+		if cell.InGroup(other) && other.value != 0 {
+			candidates.Set(other.value, false)
+		}
+	}
+
+	return candidates
+}
+
 func (puzzle *Puzzle) IsValid() bool {
 	size := puzzle.kind.Size()
 	rows := make([]Candidates, size)
@@ -217,15 +258,7 @@ func (puzzle *Puzzle) IsValid() bool {
 			boxs[cell.box].Set(cell.value, true)
 		}
 
-		candidates := Candidates{}
-		candidates.Fill(puzzle.kind.Size())
-
-		for k := range puzzle.cells {
-			other := &puzzle.cells[k]
-			if cell.InGroup(other) && other.value != 0 {
-				candidates.Set(other.value, false)
-			}
-		}
+		candidates := puzzle.GetCandidatesFor(cell)
 
 		if cell.value > 0 {
 			if !candidates.Has(cell.value) {
@@ -241,4 +274,60 @@ func (puzzle *Puzzle) IsValid() bool {
 		}
 	}
 	return true
+}
+
+func (puzzle *Puzzle) UniqueId() string {
+	sb := strings.Builder{}
+	for k := range puzzle.cells {
+		other := &puzzle.cells[k]
+		if other.value == 0 {
+			sb.WriteString(".")
+		} else {
+			sb.WriteString(fmt.Sprint(other.value))
+		}
+	}
+	return sb.String()
+}
+
+func (puzzle *Puzzle) HasUniqueSolution() bool {
+	return len(puzzle.GetSolutions(2)) == 1
+}
+
+func (puzzle *Puzzle) GetSolutions(max int) []*Puzzle {
+	solutions := make([]*Puzzle, 0)
+	solvers := make([]Solver, 0)
+	solvers = append(solvers, puzzle.Solver())
+	unique := map[string]bool{}
+
+	for len(solvers) > 0 {
+		solver := solvers[0]
+		solvers = solvers[1:]
+		solution, solved := solver.Solve()
+
+		if !solved {
+			min := solver.GetMinCandidateCount()
+			minCell := solver.GetGroupWhere(func(group *CellGroups) bool {
+				return group.cell.candidates.Count == min
+			})
+			if minCell != nil {
+				for _, candidate := range minCell.cell.Candidates() {
+					newSolver := solution.Solver()
+					if newSolver.Set(minCell.cell.col, minCell.cell.row, candidate) {
+						solvers = append(solvers, newSolver)
+					}
+				}
+			}
+		} else {
+			id := solution.UniqueId()
+			if !unique[id] {
+				solutions = append(solutions, solution)
+				if max > 0 && len(solutions) == max {
+					break
+				}
+				unique[id] = true
+			}
+		}
+	}
+
+	return solutions
 }
