@@ -195,7 +195,7 @@ func (puzzle *Puzzle) IsSolved() bool {
 
 	for i := range puzzle.cells {
 		cell := &puzzle.cells[i]
-		if cell.value == 0 {
+		if cell.Empty() {
 			return false
 		}
 
@@ -225,7 +225,7 @@ func (puzzle *Puzzle) GetCandidatesFor(cell *Cell) Candidates {
 
 	for k := range puzzle.cells {
 		other := &puzzle.cells[k]
-		if cell.InGroup(other) && other.value != 0 {
+		if cell.InGroup(other) && other.HasValue() {
 			candidates.Set(other.value, false)
 		}
 	}
@@ -280,7 +280,7 @@ func (puzzle *Puzzle) UniqueId() string {
 	sb := strings.Builder{}
 	for k := range puzzle.cells {
 		other := &puzzle.cells[k]
-		if other.value == 0 {
+		if other.Empty() {
 			sb.WriteString(".")
 		} else {
 			sb.WriteString(fmt.Sprint(other.value))

@@ -114,7 +114,7 @@ func (instance *Puzzle) PrintCells() {
 
 func (cell *Cell) ToString() string {
 	cellValue := "_"
-	if cell.value != 0 {
+	if cell.HasValue() {
 		cellValue = strconv.Itoa(cell.value)
 	}
 
@@ -202,7 +202,7 @@ func (puzzle *Puzzle) WriteCandidates(out io.Writer) {
 
 			appendLine(thickV, thinV, thickV, thickV, func(column int) {
 				cell := row[column]
-				if cell.value == 0 {
+				if cell.Empty() {
 					for cellCol := 0; cellCol < boxWidth; cellCol++ {
 						candidate := cellRow*boxHeight + cellCol + 1
 						if cell.candidates.Has(candidate) {
