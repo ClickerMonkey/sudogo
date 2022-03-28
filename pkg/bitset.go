@@ -61,6 +61,11 @@ func (bits *Bitset) First() int {
 	return mathBits.TrailingZeros64(bits.Value)
 }
 
+// The largest integer in the set or -1 if the set is empty.
+func (bits *Bitset) Last() int {
+	return 63 - mathBits.LeadingZeros64(bits.Value)
+}
+
 // Updates the number of integers in the set based on the Value.
 func (bits *Bitset) UpdateCount() {
 	bits.Count = mathBits.OnesCount64(bits.Value)
@@ -75,13 +80,17 @@ func (bits *Bitset) Remove(remove Bitset) int {
 }
 
 // Adds all integers in the given set to this set (union).
-func (bits *Bitset) Or(or Bitset) {
+func (bits *Bitset) Or(or Bitset) int {
+	original := bits.Count
 	bits.Value = bits.Value | or.Value
 	bits.UpdateCount()
+	return bits.Count - original
 }
 
 // Removes any integers from this set that also don't exist in the given set (intersection).
-func (bits *Bitset) And(and Bitset) {
+func (bits *Bitset) And(and Bitset) int {
+	original := bits.Count
 	bits.Value = bits.Value & and.Value
 	bits.UpdateCount()
+	return original - bits.Count
 }

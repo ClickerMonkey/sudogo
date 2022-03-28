@@ -30,17 +30,22 @@ func (cand *Candidates) First() int {
 	return cand.Bitset.First() + 1
 }
 
+// The largest candidate in the set or 0 if the set is empty
+func (cand *Candidates) Last() int {
+	return cand.Bitset.Last() + 1
+}
+
 // Removes all candidates in the given set from this set.
 func (cand *Candidates) Remove(remove Candidates) int {
 	return cand.Bitset.Remove(remove.Bitset)
 }
 
 // Adds all candidates in the given set to this set (union).
-func (cand *Candidates) Or(or Candidates) {
-	cand.Bitset.Or(or.Bitset)
+func (cand *Candidates) Or(or Candidates) int {
+	return cand.Bitset.Or(or.Bitset)
 }
 
 // Removes any candidates from this set that also don't exist in the given set (intersection).
-func (cand *Candidates) And(and Candidates) {
-	cand.Bitset.And(and.Bitset)
+func (cand *Candidates) And(and Candidates) int {
+	return cand.Bitset.And(and.Bitset)
 }

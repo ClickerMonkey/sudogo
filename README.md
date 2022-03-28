@@ -32,9 +32,8 @@ func main() {
 
   // Solve
   solver := puzzle.Solver()
-  solved := solver.Solve()
-  solution := solver.Puzzle()
-  if solution.IsSolved() {
+  solution, solved := solver.Solve()
+  if solved {
     println("Solved!")
   }
 

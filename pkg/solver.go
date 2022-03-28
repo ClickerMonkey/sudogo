@@ -10,7 +10,7 @@ type CellGroups struct {
 
 func (group *CellGroups) Remove(neighbor *Cell) {
 	group.all = removeValue[*Cell](group.all, neighbor)
-	group.box = removeValue[*Cell](group.all, neighbor)
+	group.box = removeValue[*Cell](group.box, neighbor)
 	group.row = removeValue[*Cell](group.row, neighbor)
 	group.col = removeValue[*Cell](group.col, neighbor)
 }
@@ -22,15 +22,24 @@ type Solver struct {
 	unsolved []*CellGroups
 }
 
+// Solve steps are done sequentially repeatedly until all steps report back that nothing was changed.
 type SolveStep func(solver *Solver, max int) (placements int, restart bool)
 
 var StandardSolveSteps = []SolveStep{
 	StepNakedSingle,
 	StepHiddenSingle,
 	StepRemovePointingCandidates,
-	// StepRemoveClaimingCandidates,
+	StepRemoveClaimingCandidates,
 	StepRemoveNakedSubsetCandidates,
 	StepRemoveHiddenSubsetCandidates,
+}
+
+var GenerateSolveSteps = []SolveStep{
+	StepNakedSingle,
+	StepHiddenSingle,
+	StepRemovePointingCandidates,
+	StepRemoveClaimingCandidates,
+	StepRemoveNakedSubsetCandidates,
 }
 
 func NewSolver(starting Puzzle) Solver {
@@ -125,25 +134,27 @@ func (solver *Solver) Solved() bool {
 	return len(solver.unsolved) == 0
 }
 
-func (solver *Solver) Solve() bool {
+func (solver *Solver) Solve() (solution *Puzzle, solved bool) {
 	solver.Place(-1)
-	return solver.Solved()
+	return &solver.puzzle, solver.Solved()
 }
 
 func (solver *Solver) Place(count int) int {
 	steps := solver.steps
 	placed := 0
-	remaining := count
 	placing := true
 	for placing {
 		placing = false
 		for _, step := range steps {
-			stepPlaced, stepRestart := step(solver, remaining)
+			stepPlaced, stepRestart := step(solver, count-placed)
 
 			placed += stepPlaced
-			remaining -= stepPlaced
 
-			if stepPlaced > 0 && (count <= 0 || remaining > 0) {
+			if count > 0 && placed >= count {
+				placing = false
+				break
+			}
+			if stepPlaced > 0 {
 				placing = true
 			}
 			if stepRestart {
@@ -435,6 +446,52 @@ func removeCandidatesFromDifferent(group []*Cell, candidates Candidates) int {
 	return removed
 }
 
+type candidateCells struct {
+	candidate int
+	cells     []*Cell
+	size      int
+}
+
+func (cells *candidateCells) isSubset(other candidateCells) bool {
+	matched := 0
+	for i := 0; i < cells.size; i++ {
+		if cells.cells[i] == other.cells[matched] {
+			matched++
+		}
+	}
+	return matched >= other.size
+}
+
+type candidateDistribution struct {
+	candidates []candidateCells
+}
+
+func newDistribution(size int) candidateDistribution {
+	candidates := make([]candidateCells, size)
+	for i := 0; i < size; i++ {
+		candidates[i].candidate = i + 1
+		candidates[i].cells = make([]*Cell, size)
+		candidates[i].size = 0
+	}
+
+	return candidateDistribution{candidates}
+}
+
+func (dist *candidateDistribution) set(cells []*Cell) {
+	for i := range dist.candidates {
+		dist.candidates[i].size = 0
+	}
+	for _, cell := range cells {
+		for i := range dist.candidates {
+			list := &dist.candidates[i]
+			if cell.candidates.Has(list.candidate) {
+				list.cells[list.size] = cell
+				list.size++
+			}
+		}
+	}
+}
+
 // ==================================================
 // Step: Remove Hidden Subset Candidates
 //		http://hodoku.sourceforge.net/en/tech_hidden.php
@@ -449,16 +506,89 @@ var StepRemoveHiddenSubsetCandidates SolveStep = CreateStepRemoveHiddenSubsetCan
 
 // Find hidden subsets and remove them as possible values for shared groups
 func doRemoveHiddenSubsetCandidates(solver *Solver, max int, subsets []int) int {
+	dist := newDistribution(solver.puzzle.kind.Size())
+	rowsTested := Bitset{}
+	colsTested := Bitset{}
+	boxsTested := Bitset{}
 	removed := 0
 
-	// for _, subsetSize := range subsets {
-	// 	row := Candidates{}
+	for _, group := range solver.unsolved {
+		cell := group.cell
 
-	// 	for _, group := range solver.unsolved {
-	// 		// Hidden subset is if a group of subsetSize has subsetSize numbers in common that are in no other cells in their group
-	// 		// In those cells remove all other candidates
-	// 	}
-	// }
+		// Only test a row/column/box of an unsolved cell once
+		if !rowsTested.Has(cell.row) {
+			rowsTested.Set(cell.row, true)
+			fullRow := group.row[:]
+			fullRow = append(fullRow, cell)
+			dist.set(fullRow)
+			removed += doRemoveHiddenSubset(&dist, max, subsets)
+			if max > 0 && removed >= max {
+				break
+			}
+		}
+		if !colsTested.Has(cell.col) {
+			colsTested.Set(cell.col, true)
+			fullCol := group.col[:]
+			fullCol = append(fullCol, cell)
+			dist.set(fullCol)
+			removed += doRemoveHiddenSubset(&dist, max, subsets)
+			if max > 0 && removed >= max {
+				break
+			}
+		}
+		if !boxsTested.Has(cell.box) {
+			boxsTested.Set(cell.box, true)
+			fullBox := group.box[:]
+			fullBox = append(fullBox, cell)
+			dist.set(fullBox)
+			removed += doRemoveHiddenSubset(&dist, max, subsets)
+			if max > 0 && removed >= max {
+				break
+			}
+		}
+	}
 
 	return removed
 }
+
+func doRemoveHiddenSubset(dist *candidateDistribution, max int, subsets []int) int {
+	removed := 0
+	for _, subsetSize := range subsets {
+		n := len(dist.candidates)
+
+		for listIndex := 0; listIndex < n; listIndex++ {
+			list := dist.candidates[listIndex]
+
+			if list.size == subsetSize {
+				matchCandidates := Candidates{}
+				matchCandidates.Set(list.candidate, true)
+
+				for otherIndex := listIndex + 1; otherIndex < n; otherIndex++ {
+					other := dist.candidates[otherIndex]
+
+					if other.size > 0 && other.size <= subsetSize && list.isSubset(other) {
+						matchCandidates.Set(other.candidate, true)
+					}
+				}
+				if matchCandidates.Count >= subsetSize {
+					for i := 0; i < list.size; i++ {
+						removed += list.cells[i].candidates.And(matchCandidates)
+					}
+					if max > 0 && removed >= max {
+						return removed
+					}
+					break
+				}
+			}
+		}
+	}
+
+	return removed
+}
+
+// ==================================================
+// Step: Remove Skyscraper Candidates
+//		http://hodoku.sourceforge.net/en/tech_sdp.php
+// ==================================================
+
+// Find two rows that contain only two candidates for that digit. If two of those candidates are in the same column, one of the other two candidates must be true. All candidates that see both of those cells can therefore be eliminated.

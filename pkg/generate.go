@@ -20,12 +20,18 @@ func NewSeededGenerator(kind *Kind, seed int64) Generator {
 	return NewRandomGenerator(kind, rand.New(rand.NewSource(seed)))
 }
 
+func generatorSolver(kind *Kind) Solver {
+	solver := NewSolver(kind.Empty())
+	solver.steps = GenerateSolveSteps
+	return solver
+}
+
 func NewRandomGenerator(kind *Kind, random *rand.Rand) Generator {
-	return Generator{kind, NewSolver(kind.Empty()), random}
+	return Generator{kind, generatorSolver(kind), random}
 }
 
 func (gen *Generator) Reset() {
-	gen.solver = NewSolver(gen.kind.Empty())
+	gen.solver = generatorSolver(gen.kind)
 }
 
 func (gen *Generator) Puzzle() *Puzzle {
@@ -114,7 +120,7 @@ func (gen *Generator) Attempts(tries int) (*Puzzle, int) {
 	for i := 0; i < tries; i++ {
 		generated = gen.Attempt()
 		if generated != nil {
-			return generated, i
+			return generated, i + 1
 		} else {
 			gen.Reset()
 		}

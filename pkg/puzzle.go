@@ -191,3 +191,54 @@ func (puzzle *Puzzle) IsSolved() bool {
 
 	return true
 }
+
+func (puzzle *Puzzle) IsValid() bool {
+	size := puzzle.kind.Size()
+	rows := make([]Candidates, size)
+	cols := make([]Candidates, size)
+	boxs := make([]Candidates, size)
+
+	for i := range puzzle.cells {
+		cell := &puzzle.cells[i]
+
+		if cell.value > 0 {
+			if rows[cell.row].Has(cell.value) {
+				return false
+			}
+			if cols[cell.col].Has(cell.value) {
+				return false
+			}
+			if boxs[cell.box].Has(cell.value) {
+				return false
+			}
+
+			rows[cell.row].Set(cell.value, true)
+			cols[cell.col].Set(cell.value, true)
+			boxs[cell.box].Set(cell.value, true)
+		}
+
+		candidates := Candidates{}
+		candidates.Fill(puzzle.kind.Size())
+
+		for k := range puzzle.cells {
+			other := &puzzle.cells[k]
+			if cell.InGroup(other) && other.value != 0 {
+				candidates.Set(other.value, false)
+			}
+		}
+
+		if cell.value > 0 {
+			if !candidates.Has(cell.value) {
+				return false
+			}
+		} else {
+			if candidates.Count == 0 {
+				return false
+			}
+			if (candidates.Value & cell.candidates.Value) != cell.candidates.Value {
+				return false
+			}
+		}
+	}
+	return true
+}
