@@ -29,39 +29,39 @@ func TestGenerateClear(t *testing.T) {
 		name      string
 		clear     int
 		symmetric bool
-		attempts  int
+		maxStates int
 	}{
 		{
 			name:      "Easy",
 			clear:     30,
 			symmetric: true,
-			attempts:  128,
+			maxStates: 1 << 10,
 		},
 		{
 			name:      "Medium",
 			clear:     40,
 			symmetric: true,
-			attempts:  128,
+			maxStates: 1 << 10,
 		},
 		{
 			name:      "Hard",
 			clear:     50,
 			symmetric: false,
-			attempts:  128,
+			maxStates: 1 << 10,
 		},
 	}
 
 	for _, test := range tests {
 		start := time.Now()
 		puzzle, _ := gen.Generate()
-		cleared, actualAttempts := gen.ClearCells(test.clear, test.symmetric, test.attempts)
+		cleared, states := gen.ClearCells(puzzle, test.clear, test.symmetric, test.maxStates)
 		duration := time.Since(start)
 
-		if !cleared {
-			t.Errorf("Failed to generate %s puzzle after %d attempts in %s", test.name, actualAttempts, duration)
+		if cleared == nil || !cleared.HasUniqueSolution() {
+			t.Errorf("Failed to generate unique %s puzzle after %d states in %s", test.name, states, duration)
 		} else {
-			puzzle.Print()
-			fmt.Printf("Generated %s in %s after %d attempts\n", test.name, duration, actualAttempts)
+			cleared.Print()
+			fmt.Printf("Generated %s (%d empty cells) in %s after %d states\n", test.name, test.clear, duration, states)
 		}
 	}
 }

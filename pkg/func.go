@@ -44,3 +44,36 @@ func pointerAt[T any](slice []*T, index int) *T {
 	}
 	return slice[index]
 }
+
+func pointersWhere[T any](source []T, where func(item *T) bool) []*T {
+	pointers := make([]*T, 0, len(source))
+	for i := range source {
+		item := &source[i]
+		if where(item) {
+			pointers = append(pointers, item)
+		}
+	}
+	return pointers
+}
+
+func sliceClone[T any](source []T) []T {
+	cloned := make([]T, len(source))
+	copy(cloned, source)
+	return cloned
+}
+
+func sliceLast[T any](source []T) *T {
+	last := len(source)-1
+	if last == -1 {
+		return nil
+	}
+	return &source[last]
+}
+
+func sliceRemoveLast[T any](source []T) []T {
+	last := len(source)-1
+	if last == -1 {
+		return source
+	}
+	return source[:last]
+}

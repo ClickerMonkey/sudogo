@@ -184,6 +184,12 @@ func (puzzle *Puzzle) GetColumnCells(columnIndex int) []*Cell {
 	return column
 }
 
+func (puzzle *Puzzle) GetSymmetric(cell *Cell) *Cell {
+	n := puzzle.kind.Size() - 1
+
+	return puzzle.Get(n-cell.col, n-cell.row)
+}
+
 func (puzzle *Puzzle) IsSolved() bool {
 	size := puzzle.kind.Size()
 	rows := make([]Candidates, size)

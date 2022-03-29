@@ -121,70 +121,78 @@ func (gen *Generator) Generate() (*Puzzle, int) {
 	return gen.Attempts(1 << 14)
 }
 
-func (gen *Generator) ClearCells(count int, symmetric bool, attempts int) (cleared bool, actualAttempts int) {
-	initialAttempts := attempts
-	attempt := gen.ClearCellsAttempt(count, symmetric)
-	attempts--
-	for attempt == nil && attempts != 0 {
-		attempt = gen.ClearCellsAttempt(count, symmetric)
-		attempts--
+func (gen *Generator) ClearCells(puzzle *Puzzle, count int, symmetric bool, maxStates int) (*Puzzle, int) {
+	if puzzle == nil || count == 0 {
+		return nil, 0
 	}
-	found := attempt != nil
-	if found {
-		gen.solver.puzzle.SetAll(attempt.GetAll())
-	}
-	return found, initialAttempts - attempts
-}
 
-func (gen *Generator) ClearCellsAttempt(count int, symmetric bool) *Puzzle {
-	cleared := 0
-	puzzle := gen.solver.puzzle
-	max := puzzle.kind.Size() - 1
-	n := len(puzzle.cells)
-	filled := make([]*Cell, 0, n)
-	for i := range puzzle.cells {
-		cell := &puzzle.cells[i]
-		if cell.HasValue() {
-			filled = append(filled, cell)
+	states := 0
+
+	type AttemptState struct {
+		cleared   int
+		puzzle    Puzzle
+		available []*Cell
+	}
+
+	attempts := []AttemptState{{
+		cleared: 0,
+		puzzle:  puzzle.Clone(),
+		available: pointersWhere(puzzle.cells, func(cell *Cell) bool {
+			return cell.HasValue()
+		}),
+	}}
+
+	for len(attempts) > 0 {
+		last := sliceLast(attempts)
+
+		if len(last.available) == 0 {
+			attempts = sliceRemoveLast(attempts)
+			continue
 		}
-	}
 
-	for cleared < count {
-		next := puzzle.Clone()
+		next := last.puzzle.Clone()
 
-		cell := randomPointer(gen.random, filled)
-		next.Remove(cell.col, cell.row)
+		cell := randomPointer(gen.random, last.available)
+		cellSymmetric := last.puzzle.GetSymmetric(cell)
 
-		cellSymmetric := puzzle.Get(max-cell.col, max-cell.row)
 		doSymmetric := symmetric && cellSymmetric.HasValue()
 
+		next.Remove(cell.col, cell.row)
 		if doSymmetric {
 			next.Remove(cellSymmetric.col, cellSymmetric.row)
 		}
 
-		if next.HasUniqueSolution() {
-			if puzzle.RemoveCell(cell) {
-				cleared++
-
-				if doSymmetric && puzzle.RemoveCell(cellSymmetric) {
-					cleared++
-				}
-			}
-		}
-
-		filled = removeValue(filled, cell)
+		last.available = removeValue(last.available, cell)
 		if doSymmetric {
-			filled = removeValue(filled, cellSymmetric)
+			last.available = removeValue(last.available, cellSymmetric)
 		}
 
-		if len(filled) == 0 {
-			break
+		if len(last.available) == 0 {
+			attempts = sliceRemoveLast(attempts)
+		}
+
+		if next.HasUniqueSolution() {
+			nextCleared := last.cleared + 1
+			if doSymmetric {
+				nextCleared++
+			}
+			states++
+
+			if nextCleared >= count {
+				return &next, states
+			}
+
+			if maxStates > 0 && states >= maxStates {
+				break
+			}
+
+			attempts = append(attempts, AttemptState{
+				cleared:   nextCleared,
+				puzzle:    next,
+				available: sliceClone(last.available),
+			})
 		}
 	}
 
-	if cleared >= count {
-		return &puzzle
-	}
-
-	return nil
+	return nil, states
 }
