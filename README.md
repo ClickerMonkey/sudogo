@@ -37,9 +37,16 @@ func main() {
     println("Solved!")
   }
 
+  // Get all solutions
+  solutions := puzzle.GetSolutions(-1)
+
   // Generate
   gen := su.Classic.Generator()
   new, attempts := gen.Generate()
+
+  // Clear out a generated puzzle so we can solve it
+  cleared, _ := gen.ClearCells(new, 50 /*hard*/, false, -1)
+  cleared.Print() // solve this!
 
   // Puzzles of different sizes
   s4x4 := su.Kind2x2.Generator().Generate()
@@ -48,6 +55,38 @@ func main() {
   s16x16 := su.Kind4x4.Generator().Generate()
 }
 ```
+
+## API
+
+Notable functions for the main types
+
+### Puzzle
+- Solver() Solver
+- Get(col, row) *Cell
+- Set(col, row, value) bool
+- SetAll(values) int
+- IsSolved() bool
+- IsValid() bool
+- UniqueId() string
+- HasUniqueSolution() bool
+- GetSolutions(max) []*Puzzle
+- Print() / ToString() / Write(out)
+- PrintCandidates() / ToCandidatesString() / WriteCandidates(out)
+
+### Solver
+- Set(col, row, value) bool
+- Solved() bool
+- Place(count) int
+
+### Generator
+- Attempt() *Puzzle
+- Attempts(tries) (*Puzzle,int)
+- Generate() (*Puzzle,int)
+- ClearCells(puzzle,count,symmetric,maxStates) (*Puzzle,int)
+ 
+### Kind
+- Create(values) Puzzle
+- Generator()
 
 ## Output
 

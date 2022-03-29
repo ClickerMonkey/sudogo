@@ -59,6 +59,21 @@ func (puzzle *Puzzle) Set(col int, row int, value int) bool {
 	return puzzle.SetCell(puzzle.Get(col, row), value)
 }
 
+func (puzzle *Puzzle) SetCell(cell *Cell, value int) bool {
+	set := cell.SetValue(value)
+
+	if set {
+		for i := range puzzle.cells {
+			c := &puzzle.cells[i]
+			if c.Empty() && c.InGroup(cell) {
+				c.RemoveCandidate(value)
+			}
+		}
+	}
+
+	return set
+}
+
 func (puzzle *Puzzle) Remove(col int, row int) bool {
 	return puzzle.RemoveCell(&puzzle.cells[row*puzzle.kind.Size()+col])
 }
@@ -79,21 +94,6 @@ func (puzzle *Puzzle) RemoveCell(cell *Cell) bool {
 		}
 	}
 	return removed
-}
-
-func (puzzle *Puzzle) SetCell(cell *Cell, value int) bool {
-	set := cell.SetValue(value)
-
-	if set {
-		for i := range puzzle.cells {
-			c := &puzzle.cells[i]
-			if c.Empty() && c.InGroup(cell) {
-				c.RemoveCandidate(value)
-			}
-		}
-	}
-
-	return set
 }
 
 func (puzzle *Puzzle) SetAll(values [][]int) int {
