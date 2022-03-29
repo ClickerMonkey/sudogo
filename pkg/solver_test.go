@@ -78,7 +78,7 @@ func TestPointing(t *testing.T) {
 		t.Errorf("Invalid candidates for r3c7 in Pointing")
 	}
 
-	StepRemovePointingCandidates(&s, -1)
+	StepRemovePointingCandidates.logic(&s, SolverLimit{}, StepRemovePointingCandidates)
 
 	if fmt.Sprint(p.Get(6, 2).Candidates()) != "[3]" {
 		t.Errorf("Invalid candidates for r3c7 in Pointing after step")
@@ -118,7 +118,7 @@ func TestClaiming(t *testing.T) {
 		t.Errorf("Invalid candidates for r3c2 in Claiming")
 	}
 
-	StepRemoveClaimingCandidates(&s, -1)
+	StepRemoveClaimingCandidates.logic(&s, SolverLimit{}, StepRemoveClaimingCandidates)
 
 	if fmt.Sprint(p.Get(1, 2).Candidates()) != "[4]" {
 		t.Errorf("Invalid candidates for r3c2 in Claiming after step")
@@ -161,7 +161,7 @@ func TestNakedPair(t *testing.T) {
 		t.Fatalf("Candidates for r8c2 are not [3 7] they are %s", c0)
 	}
 
-	StepRemoveNakedSubsetCandidates(&s, 1)
+	StepRemoveNakedSubsetCandidates2.logic(&s, SolverLimit{}, StepRemoveNakedSubsetCandidates2)
 
 	c1 := fmt.Sprint(r8c2.Candidates())
 	if c1 != "[7]" {
@@ -180,10 +180,10 @@ func TestHiddenPair(t *testing.T) {
 	}
 
 	tests := []struct {
-		puzzle  Puzzle
-		subsets []int
-		max     int
-		tests   []CandidateTest
+		puzzle Puzzle
+		step   *SolveStep
+		max    int
+		tests  []CandidateTest
 	}{
 		{
 			puzzle: Classic.Create([][]int{
@@ -197,8 +197,8 @@ func TestHiddenPair(t *testing.T) {
 				{7, 1, 2, 8, 9, 4, 5, 6, 3},
 				{9, 6, 4, 5, 1, 3, 0, 0, 0},
 			}),
-			subsets: []int{2},
-			max:     19,
+			step: StepRemoveHiddenSubsetCandidates2,
+			max:  19,
 			tests: []CandidateTest{
 				{
 					column: 8,
@@ -226,8 +226,8 @@ func TestHiddenPair(t *testing.T) {
 				{0, 6, 0, 0, 8, 0, 2, 7, 1},
 				{0, 0, 5, 0, 1, 0, 0, 9, 4},
 			}),
-			subsets: []int{2},
-			max:     1,
+			step: StepRemoveHiddenSubsetCandidates2,
+			max:  1,
 			tests: []CandidateTest{
 				{
 					column: 0,
@@ -255,8 +255,8 @@ func TestHiddenPair(t *testing.T) {
 				{0, 0, 0, 0, 0, 0, 7, 0, 0},
 				{6, 8, 0, 5, 7, 0, 0, 0, 2},
 			}),
-			subsets: []int{3},
-			max:     23,
+			step: StepRemoveHiddenSubsetCandidates3,
+			max:  23,
 			tests: []CandidateTest{
 				{
 					column: 5,
@@ -290,8 +290,8 @@ func TestHiddenPair(t *testing.T) {
 				{0, 0, 3, 0, 0, 9, 8, 2, 1},
 				{0, 0, 0, 0, 8, 0, 9, 3, 7},
 			}),
-			subsets: []int{3},
-			max:     1,
+			step: StepRemoveHiddenSubsetCandidates3,
+			max:  3,
 			tests: []CandidateTest{
 				{
 					column: 1,
@@ -329,7 +329,7 @@ func TestHiddenPair(t *testing.T) {
 			}
 		}
 
-		removed := doRemoveHiddenSubsetCandidates(&solver, test.max, test.subsets)
+		removed, _ := test.step.logic(&solver, SolverLimit{maxBatches: test.max}, test.step)
 
 		for _, cellTest := range test.tests {
 			testCell := puzzle.Get(cellTest.column, cellTest.row)
@@ -406,4 +406,37 @@ func checkValid(puzzle *Puzzle, t *testing.T) {
 		puzzle.PrintCandidates()
 		t.Fatal("The previous puzzle has invalid candidates")
 	}
+}
+
+func TestLogs(t *testing.T) {
+	original := Classic.Create([][]int{
+		{9, 8, 4, 0, 0, 0, 0, 0, 0},
+		{0, 0, 2, 5, 0, 0, 0, 4, 0},
+		{0, 0, 1, 9, 0, 4, 0, 0, 2},
+		{0, 0, 6, 0, 9, 7, 2, 3, 0},
+		{0, 0, 3, 6, 0, 2, 0, 0, 0},
+		{2, 0, 9, 0, 3, 5, 6, 1, 0},
+		{1, 9, 5, 7, 6, 8, 4, 2, 3},
+		{4, 2, 7, 3, 5, 1, 8, 9, 6},
+		{6, 3, 8, 0, 0, 9, 7, 5, 1},
+	})
+
+	solver := original.Solver()
+	solver.logEnabled = true
+	solver.Solve()
+
+	fmt.Println("TestLogs")
+	printSolveLogs(&solver)
+}
+
+func printSolveLogs(solver *Solver) {
+	for _, log := range solver.logs {
+		if log.placement {
+			fmt.Printf("%s placed %d at r%dc%d (cost=%d)\n", log.step.technique, log.after.value, log.after.row+1, log.after.col+1, log.cost)
+		} else {
+			fmt.Printf("%s candidates set %v from %v at r%dc%d (cost=%d)\n", log.step.technique, log.before.candidates.ToSlice(), log.after.candidates.ToSlice(), log.before.row+1, log.before.col+1, log.cost)
+		}
+	}
+	last := solver.GetLastLog()
+	fmt.Printf("Total cost = %d, placements = %d, batches = %d, logs = %d.\n", last.runningCost, last.runningPlacements, last.batch, last.index)
 }

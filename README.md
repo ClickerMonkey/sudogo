@@ -157,7 +157,7 @@ Puzzle.PrintCandidates()
 ### TODO
 
 - [X] More efficient cell clearing after generation
-- [ ] Logging solve operations (type, score, text, cell before/after)
+- [x] Logging solve operations (type, score, text, cell before/after)
 - [ ] Sum Constraint (cells add up to a number)
   - Cells in path add up to another cell
   - Path adds up to constant

@@ -94,3 +94,13 @@ func (bits *Bitset) And(and Bitset) int {
 	bits.UpdateCount()
 	return original - bits.Count
 }
+
+// Returns whether this set and the other share any integers.
+func (bits *Bitset) Overlaps(other Bitset) bool {
+	return (bits.Value & other.Value) != 0
+}
+
+// Returns whether this set and the other don't share one or more integers.
+func (bits *Bitset) Differences(other Bitset) bool {
+	return (bits.Value & ^other.Value) != 0
+}

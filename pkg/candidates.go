@@ -49,3 +49,13 @@ func (cand *Candidates) Or(or Candidates) int {
 func (cand *Candidates) And(and Candidates) int {
 	return cand.Bitset.And(and.Bitset)
 }
+
+// Returns whether this set and the other share any candidates.
+func (cand *Candidates) Overlaps(other Candidates) bool {
+	return cand.Bitset.Overlaps(other.Bitset)
+}
+
+// Returns whether this set and the other don't share one or more candidates.
+func (cand *Candidates) Differences(other Candidates) bool {
+	return cand.Bitset.Differences(other.Bitset)
+}
