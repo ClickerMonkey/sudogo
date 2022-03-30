@@ -1,6 +1,9 @@
 package sudogo
 
-import "math/rand"
+import ( 
+	"golang.org/x/exp/constraints"
+	"math/rand"
+)
 
 func removeAtIndex[T any](slice []T, index int) []T {
 	last := len(slice) - 1
@@ -77,3 +80,10 @@ func sliceRemoveLast[T any](source []T) []T {
 	}
 	return source[:last]
 }
+
+func max[T constraints.Ordered](x T, y T) T {
+	if x > y {
+		return x
+	}
+	return y
+ }

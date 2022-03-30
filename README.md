@@ -180,3 +180,7 @@ Puzzle.PrintCandidates()
 - [ ] Solve step: Mutant Fish (http://hodoku.sourceforge.net/en/tech_fishc.php)
 - [ ] Solve step: Siamese Fish (http://hodoku.sourceforge.net/en/tech_fishc.php)
 - [ ] Solve step: Constraints
+
+### Resources
+- http://hodoku.sourceforge.net/en/techniques.php
+- https://www.sudokuoftheday.com/difficulty

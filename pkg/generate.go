@@ -86,7 +86,7 @@ func (gen *Generator) GetRandomPressured() *CellGroups {
 
 func (gen *Generator) Attempt() *Puzzle {
 	for !gen.IsComplete() {
-		gen.solver.Solve()
+		gen.solver.Solve(SolverLimit{})
 
 		if gen.IsComplete() {
 			break
@@ -121,41 +121,102 @@ func (gen *Generator) Generate() (*Puzzle, int) {
 	return gen.Attempts(1 << 14)
 }
 
-func (gen *Generator) ClearCells(puzzle *Puzzle, count int, symmetric bool, maxStates int) (*Puzzle, int) {
-	if puzzle == nil || count == 0 {
+type ClearLimits struct {
+	SolverLimit
+	symmetric bool
+	maxStates int
+}
+
+func (limits ClearLimits) Extend(extend ClearLimits) ClearLimits {
+	out := limits
+	if extend.symmetric && !out.symmetric {
+		out.symmetric = true
+	}
+	if extend.maxBatches > 0 {
+		out.maxBatches = extend.maxBatches
+	}
+	if extend.maxCost > 0 {
+		out.maxCost = extend.maxCost
+	}
+	if extend.minCost > 0 {
+		out.minCost = extend.minCost
+	}
+	if extend.maxLogs > 0 {
+		out.maxLogs = extend.maxLogs
+	}
+	if extend.maxPlacements > 0 {
+		out.maxPlacements = extend.maxPlacements
+	}
+	if extend.maxStates > 0 {
+		out.maxStates = extend.maxStates
+	}
+	return out
+}
+
+var DifficultyBeginner = ClearLimits{
+	SolverLimit: SolverLimit{minCost: 3600, maxCost: 4500},
+	symmetric:   true,
+}
+var DifficultyEasy = ClearLimits{
+	SolverLimit: SolverLimit{minCost: 4300, maxCost: 5500},
+	symmetric:   true,
+}
+var DifficultyMedium = ClearLimits{
+	SolverLimit: SolverLimit{minCost: 5300, maxCost: 6900},
+	symmetric:   true,
+}
+var DifficultyTricky = ClearLimits{
+	SolverLimit: SolverLimit{minCost: 6500, maxCost: 9300},
+	symmetric:   true,
+}
+var DifficultyFiendish = ClearLimits{
+	SolverLimit: SolverLimit{minCost: 8300, maxCost: 14000},
+	symmetric:   false,
+}
+var DifficultyDiabolical = ClearLimits{
+	SolverLimit: SolverLimit{minCost: 11000, maxCost: 25000},
+	symmetric:   false,
+}
+
+func (gen *Generator) ClearCells(puzzle *Puzzle, limits ClearLimits) (*Puzzle, int) {
+	if puzzle == nil || (limits.maxBatches == 0 && limits.maxCost == 0 && limits.maxLogs == 0 && limits.maxPlacements == 0 && limits.maxStates == 0) {
 		return nil, 0
 	}
 
 	states := 0
 
 	type AttemptState struct {
-		cleared   int
 		puzzle    Puzzle
+		solver    Solver
 		available []*Cell
 	}
 
-	attempts := []AttemptState{{
-		cleared: 0,
-		puzzle:  puzzle.Clone(),
-		available: pointersWhere(puzzle.cells, func(cell *Cell) bool {
+	attempts := NewStack[AttemptState](limits.maxPlacements)
+
+	initial := puzzle.Clone()
+	attempts.Push(AttemptState{
+		puzzle: initial,
+		solver: initial.Solver(),
+		available: pointersWhere(initial.cells, func(cell *Cell) bool {
 			return cell.HasValue()
 		}),
-	}}
+	})
 
-	for len(attempts) > 0 {
-		last := sliceLast(attempts)
+	for !attempts.Empty() {
+		last := attempts.Peek()
 
 		if len(last.available) == 0 {
-			attempts = sliceRemoveLast(attempts)
+			attempts.Pop()
 			continue
 		}
 
 		next := last.puzzle.Clone()
+		nextSolver := next.Solver()
 
 		cell := randomPointer(gen.random, last.available)
 		cellSymmetric := last.puzzle.GetSymmetric(cell)
 
-		doSymmetric := symmetric && cellSymmetric.HasValue()
+		doSymmetric := limits.symmetric && cellSymmetric.HasValue()
 
 		next.Remove(cell.col, cell.row)
 		if doSymmetric {
@@ -168,27 +229,29 @@ func (gen *Generator) ClearCells(puzzle *Puzzle, count int, symmetric bool, maxS
 		}
 
 		if len(last.available) == 0 {
-			attempts = sliceRemoveLast(attempts)
+			attempts.Pop()
 		}
 
-		if next.HasUniqueSolution() {
-			nextCleared := last.cleared + 1
-			if doSymmetric {
-				nextCleared++
-			}
+		nextSolutions := next.GetSolutions(SolutionLimit{
+			SolverLimit:  limits.SolverLimit,
+			maxSolutions: 2,
+		})
+
+		if len(nextSolutions) == 1 {
+			uniqueSolution := nextSolutions[0]
 			states++
 
-			if nextCleared >= count {
+			if !uniqueSolution.canContinue(limits.SolverLimit, 0) {
 				return &next, states
 			}
 
-			if maxStates > 0 && states >= maxStates {
+			if limits.maxStates > 0 && states >= limits.maxStates {
 				break
 			}
 
-			attempts = append(attempts, AttemptState{
-				cleared:   nextCleared,
+			attempts.Push(AttemptState{
 				puzzle:    next,
+				solver:    nextSolver,
 				available: sliceClone(last.available),
 			})
 		}

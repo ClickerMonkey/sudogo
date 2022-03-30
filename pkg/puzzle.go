@@ -296,19 +296,24 @@ func (puzzle *Puzzle) UniqueId() string {
 }
 
 func (puzzle *Puzzle) HasUniqueSolution() bool {
-	return len(puzzle.GetSolutions(2)) == 1
+	return len(puzzle.GetSolutions(SolutionLimit{maxSolutions: 2})) == 1
 }
 
-func (puzzle *Puzzle) GetSolutions(max int) []*Puzzle {
-	solutions := make([]*Puzzle, 0)
-	solvers := make([]Solver, 0)
-	solvers = append(solvers, puzzle.Solver())
+type SolutionLimit struct {
+	SolverLimit
+	maxSolutions int
+}
+
+func (puzzle *Puzzle) GetSolutions(limits SolutionLimit) []*Solver {
+	solutions := make([]*Solver, 0, max(0, limits.maxSolutions))
 	unique := map[string]bool{}
 
-	for len(solvers) > 0 {
-		solver := solvers[0]
-		solvers = solvers[1:]
-		solution, solved := solver.Solve()
+	solvers := NewQueue[Solver]()
+	solvers.Offer(puzzle.Solver())
+
+	for !solvers.Empty() {
+		solver := solvers.Poll()
+		solution, solved := solver.Solve(limits.SolverLimit)
 
 		if !solved {
 			min := solver.GetMinCandidateCount()
@@ -319,15 +324,15 @@ func (puzzle *Puzzle) GetSolutions(max int) []*Puzzle {
 				for _, candidate := range minCell.cell.Candidates() {
 					newSolver := solution.Solver()
 					if newSolver.Set(minCell.cell.col, minCell.cell.row, candidate) {
-						solvers = append(solvers, newSolver)
+						solvers.Offer(newSolver)
 					}
 				}
 			}
 		} else {
 			id := solution.UniqueId()
 			if !unique[id] {
-				solutions = append(solutions, solution)
-				if max > 0 && len(solutions) == max {
+				solutions = append(solutions, solver)
+				if limits.maxSolutions > 0 && len(solutions) == limits.maxSolutions {
 					break
 				}
 				unique[id] = true

@@ -20,7 +20,7 @@ func TestSolveSimple(t *testing.T) {
 	})
 
 	s := original.Solver()
-	solution, solved := s.Solve()
+	solution, solved := s.Solve(SolverLimit{})
 
 	if !solved {
 		solution.PrintCandidates()
@@ -44,7 +44,7 @@ func TestSolveHiddenSingle(t *testing.T) {
 	})
 
 	s := original.Solver()
-	solution, solved := s.Solve()
+	solution, solved := s.Solve(SolverLimit{})
 
 	if solution.Get(3, 2).value != 6 {
 		t.Errorf("The solver failed to use hidden single logic on r3c4.")
@@ -84,7 +84,7 @@ func TestPointing(t *testing.T) {
 		t.Errorf("Invalid candidates for r3c7 in Pointing after step")
 	}
 
-	solution, solved := s.Solve()
+	solution, solved := s.Solve(SolverLimit{})
 
 	if solution.Get(6, 2).value != 3 {
 		t.Errorf("Test Pointing solve failed")
@@ -124,7 +124,7 @@ func TestClaiming(t *testing.T) {
 		t.Errorf("Invalid candidates for r3c2 in Claiming after step")
 	}
 
-	solution, solved := s.Solve()
+	solution, solved := s.Solve(SolverLimit{})
 
 	if solution.Get(1, 2).value != 4 {
 		t.Errorf("Test Claiming solve failed")
@@ -364,7 +364,7 @@ func TestSolveHard(t *testing.T) {
 				{0, 0, 0, 0, 7, 1, 2, 0, 6},
 				{0, 9, 0, 0, 0, 6, 7, 0, 0},
 			}),
-			max:       -1,
+			max:       0,
 			solutions: 13,
 		},
 		{
@@ -379,14 +379,14 @@ func TestSolveHard(t *testing.T) {
 				{0, 0, 0, 0, 7, 1, 2, 0, 6},
 				{0, 9, 0, 0, 0, 6, 7, 8, 0},
 			}),
-			max:       -1,
+			max:       0,
 			solutions: 1,
 		},
 	}
 
 	for _, test := range tests {
 		start := time.Now()
-		solutions := test.puzzle.GetSolutions(test.max)
+		solutions := test.puzzle.GetSolutions(SolutionLimit{maxSolutions: test.max})
 		duration := time.Since(start)
 
 		if len(solutions) != test.solutions {
@@ -396,7 +396,7 @@ func TestSolveHard(t *testing.T) {
 		fmt.Printf("Solutions: %d in %s\n", len(solutions), duration)
 
 		for _, solution := range solutions {
-			checkValid(solution, t)
+			checkValid(&solution.puzzle, t)
 		}
 	}
 }
@@ -423,7 +423,7 @@ func TestLogs(t *testing.T) {
 
 	solver := original.Solver()
 	solver.logEnabled = true
-	solver.Solve()
+	solver.Solve(SolverLimit{})
 
 	fmt.Println("TestLogs")
 	printSolveLogs(&solver)

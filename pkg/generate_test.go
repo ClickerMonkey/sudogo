@@ -27,41 +27,86 @@ func TestGenerateClear(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		clear     int
+		clear     ClearLimits
 		symmetric bool
 		maxStates int
 	}{
 		{
-			name:      "Easy",
-			clear:     30,
-			symmetric: true,
-			maxStates: 1 << 10,
+			name: "Easy",
+			clear: ClearLimits{
+				SolverLimit: SolverLimit{
+					maxPlacements: 30,
+				},
+				symmetric: true,
+			},
 		},
 		{
-			name:      "Medium",
-			clear:     40,
-			symmetric: true,
-			maxStates: 1 << 10,
+			name: "Medium",
+			clear: ClearLimits{
+				SolverLimit: SolverLimit{
+					maxPlacements: 40,
+				},
+				symmetric: true,
+			},
 		},
 		{
-			name:      "Hard",
-			clear:     50,
-			symmetric: false,
-			maxStates: 1 << 10,
+			name: "Hard",
+			clear: ClearLimits{
+				SolverLimit: SolverLimit{
+					maxPlacements: 50,
+				},
+				symmetric: true,
+			},
 		},
+		{
+			name:  "DifficultyBeginner",
+			clear: DifficultyBeginner,
+		},
+		{
+			name:  "DifficultyEasy",
+			clear: DifficultyEasy,
+		},
+		{
+			name:  "DifficultyMedium",
+			clear: DifficultyMedium,
+		},
+		// {
+		// 	name:  "DifficultyTricky",
+		// 	clear: DifficultyTricky,
+		// },
+		// {
+		// 	name:  "DifficultyFiendish",
+		// 	clear: DifficultyFiendish,
+		// },
+		// {
+		// 	name:  "DifficultyDiabolical",
+		// 	clear: DifficultyDiabolical,
+		// },
 	}
 
 	for _, test := range tests {
+		limits := test.clear.Extend(ClearLimits{
+			maxStates: 64,
+		})
 		start := time.Now()
-		puzzle, _ := gen.Generate()
-		cleared, states := gen.ClearCells(puzzle, test.clear, test.symmetric, test.maxStates)
+
+		var attempts int = 32
+		var cleared *Puzzle = nil
+		var states int = 0
+
+		for cleared == nil && attempts > 0 {
+			puzzle, _ := gen.Generate()
+			cleared, states = gen.ClearCells(puzzle, limits)
+			attempts--
+		}
+
 		duration := time.Since(start)
 
 		if cleared == nil || !cleared.HasUniqueSolution() {
 			t.Errorf("Failed to generate unique %s puzzle after %d states in %s", test.name, states, duration)
 		} else {
 			cleared.Print()
-			fmt.Printf("Generated %s (%d empty cells) in %s after %d states\n", test.name, test.clear, duration, states)
+			fmt.Printf("Generated %s (%d empty cells) in %s after %d states\n", test.name, test.clear.maxPlacements, duration, states)
 		}
 	}
 }

@@ -253,20 +253,13 @@ func (solver *Solver) Solved() bool {
 	return len(solver.unsolved) == 0
 }
 
-func (solver *Solver) Solve() (solution *Puzzle, solved bool) {
-	solver.Place(SolverLimit{})
-	return &solver.puzzle, solver.Solved()
-}
-
-func (solver *Solver) Place(limits SolverLimit) int {
+func (solver *Solver) Solve(limits SolverLimit) (*Puzzle, bool) {
 	steps := solver.steps
-	placed := 0
 	placing := true
 	for placing {
 		placing = false
 		for _, step := range steps {
 			stepPlaced, stepRestart := step.logic(solver, limits, step)
-			placed += stepPlaced
 
 			if !solver.canContinue(limits, 0) {
 				placing = false
@@ -281,8 +274,7 @@ func (solver *Solver) Place(limits SolverLimit) int {
 			}
 		}
 	}
-
-	return placed
+	return &solver.puzzle, solver.Solved()
 }
 
 // ==================================================
