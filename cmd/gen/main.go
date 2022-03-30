@@ -199,7 +199,7 @@ func handlePDFOutput(puzzleIndex int, puzzle *sudogo.Puzzle, solution *sudogo.Pu
 
 	for y := 0.0; y < size; y++ {
 		for x := 0.0; x < size; x++ {
-			cell := puzzle.Get(int(y), int(x))
+			cell := puzzle.Get(int(x), int(y))
 			cellValue := ""
 			if cell.HasValue() {
 				cellValue = strconv.Itoa(cell.Value)
