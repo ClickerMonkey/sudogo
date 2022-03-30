@@ -35,27 +35,27 @@ func TestGenerateClear(t *testing.T) {
 			name: "Easy",
 			clear: ClearLimits{
 				SolverLimit: SolverLimit{
-					maxPlacements: 30,
+					MaxPlacements: 30,
 				},
-				symmetric: true,
+				Symmetric: true,
 			},
 		},
 		{
 			name: "Medium",
 			clear: ClearLimits{
 				SolverLimit: SolverLimit{
-					maxPlacements: 40,
+					MaxPlacements: 40,
 				},
-				symmetric: true,
+				Symmetric: true,
 			},
 		},
 		{
 			name: "Hard",
 			clear: ClearLimits{
 				SolverLimit: SolverLimit{
-					maxPlacements: 50,
+					MaxPlacements: 50,
 				},
-				symmetric: true,
+				Symmetric: true,
 			},
 		},
 		{
@@ -86,7 +86,7 @@ func TestGenerateClear(t *testing.T) {
 
 	for _, test := range tests {
 		limits := test.clear.Extend(ClearLimits{
-			maxStates: 64,
+			MaxStates: 64,
 		})
 		start := time.Now()
 
@@ -106,7 +106,7 @@ func TestGenerateClear(t *testing.T) {
 			t.Errorf("Failed to generate unique %s puzzle after %d states in %s", test.name, states, duration)
 		} else {
 			cleared.Print()
-			fmt.Printf("Generated %s (%d empty cells) in %s after %d states\n", test.name, test.clear.maxPlacements, duration, states)
+			fmt.Printf("Generated %s (%d empty cells) in %s after %d states\n", test.name, test.clear.MaxPlacements, duration, states)
 		}
 	}
 }

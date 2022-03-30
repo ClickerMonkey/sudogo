@@ -2,53 +2,53 @@ package sudogo
 
 // A cell holds a value or possible values in a Sudoku puzzle.
 type Cell struct {
-	// The value in the cell or 0 if a no value exists yet.
-	value int
-	// The unique id of the cell. This is also the index of this cell in the puzzle's cells slice.
-	id int
-	// The zero-based row this cell is in.
-	row int
+	// The Value in the cell or 0 if a no Value exists yet.
+	Value int
+	// The unique Id of the cell. This is also the index of this cell in the puzzle's cells slice.
+	Id int
+	// The zero-based Row this cell is in.
+	Row int
 	// The zero-based column this cell is in.
-	col int
-	// The zero-based box this cell is in which starts in the top left of the puzzle and goes right and then restarts on the left side for the next row.
-	box int
+	Col int
+	// The zero-based Box this cell is in which starts in the top left of the puzzle and goes right and then restarts on the left side for the next row.
+	Box int
 	// The possible values in the cell if there is no value.
 	candidates Candidates
 }
 
 // Returns whether this cell has a value in it.
 func (cell *Cell) HasValue() bool {
-	return cell.value != 0
+	return cell.Value != 0
 }
 
 // Returns this cell is empty (does not have a value in it).
 func (cell *Cell) Empty() bool {
-	return cell.value == 0
+	return cell.Value == 0
 }
 
 // Returns if this cell is valid, meaning the value and candidates it has match. If this returns false then there is a logical error in the software.
 func (cell *Cell) Valid() bool {
-	return (cell.value != 0) == (cell.candidates.Value == 0)
+	return (cell.Value != 0) == (cell.candidates.Value == 0)
 }
 
 // Returns whether this cell and the given cell are in the same group (box, column, or row).
 func (cell *Cell) InGroup(other *Cell) bool {
-	return cell.id != other.id && (cell.row == other.row || cell.col == other.col || cell.box == other.box)
+	return cell.Id != other.Id && (cell.Row == other.Row || cell.Col == other.Col || cell.Box == other.Box)
 }
 
 // Returns whether this cell and the given cell are in the same box.
 func (cell *Cell) InBox(other *Cell) bool {
-	return cell.id != other.id && cell.box == other.box
+	return cell.Id != other.Id && cell.Box == other.Box
 }
 
 // Returns whether this cell and the given cell are in the same row.
 func (cell *Cell) InRow(other *Cell) bool {
-	return cell.id != other.id && cell.row == other.row
+	return cell.Id != other.Id && cell.Row == other.Row
 }
 
 // Returns whether this cell and the given cell are in the same column.
 func (cell *Cell) InColumn(other *Cell) bool {
-	return cell.id != other.id && cell.col == other.col
+	return cell.Id != other.Id && cell.Col == other.Col
 }
 
 // Removes the given candidate from this cell and returns whether it existed in the first place.
@@ -66,7 +66,7 @@ func (cell *Cell) HasCandidate(value int) bool {
 func (cell *Cell) SetValue(value int) bool {
 	can := cell.candidates.Has(value)
 	if can {
-		cell.value = value
+		cell.Value = value
 		cell.candidates.Clear()
 	}
 	return can

@@ -46,7 +46,7 @@ func TestSolveHiddenSingle(t *testing.T) {
 	s := original.Solver()
 	solution, solved := s.Solve(SolverLimit{})
 
-	if solution.Get(3, 2).value != 6 {
+	if solution.Get(3, 2).Value != 6 {
 		t.Errorf("The solver failed to use hidden single logic on r3c4.")
 	}
 
@@ -78,7 +78,7 @@ func TestPointing(t *testing.T) {
 		t.Errorf("Invalid candidates for r3c7 in Pointing")
 	}
 
-	StepRemovePointingCandidates.logic(&s, SolverLimit{}, StepRemovePointingCandidates)
+	StepRemovePointingCandidates.Logic(&s, SolverLimit{}, StepRemovePointingCandidates)
 
 	if fmt.Sprint(p.Get(6, 2).Candidates()) != "[3]" {
 		t.Errorf("Invalid candidates for r3c7 in Pointing after step")
@@ -86,7 +86,7 @@ func TestPointing(t *testing.T) {
 
 	solution, solved := s.Solve(SolverLimit{})
 
-	if solution.Get(6, 2).value != 3 {
+	if solution.Get(6, 2).Value != 3 {
 		t.Errorf("Test Pointing solve failed")
 	}
 
@@ -118,7 +118,7 @@ func TestClaiming(t *testing.T) {
 		t.Errorf("Invalid candidates for r3c2 in Claiming")
 	}
 
-	StepRemoveClaimingCandidates.logic(&s, SolverLimit{}, StepRemoveClaimingCandidates)
+	StepRemoveClaimingCandidates.Logic(&s, SolverLimit{}, StepRemoveClaimingCandidates)
 
 	if fmt.Sprint(p.Get(1, 2).Candidates()) != "[4]" {
 		t.Errorf("Invalid candidates for r3c2 in Claiming after step")
@@ -126,7 +126,7 @@ func TestClaiming(t *testing.T) {
 
 	solution, solved := s.Solve(SolverLimit{})
 
-	if solution.Get(1, 2).value != 4 {
+	if solution.Get(1, 2).Value != 4 {
 		t.Errorf("Test Claiming solve failed")
 	}
 
@@ -161,7 +161,7 @@ func TestNakedPair(t *testing.T) {
 		t.Fatalf("Candidates for r8c2 are not [3 7] they are %s", c0)
 	}
 
-	StepRemoveNakedSubsetCandidates2.logic(&s, SolverLimit{}, StepRemoveNakedSubsetCandidates2)
+	StepRemoveNakedSubsetCandidates2.Logic(&s, SolverLimit{}, StepRemoveNakedSubsetCandidates2)
 
 	c1 := fmt.Sprint(r8c2.Candidates())
 	if c1 != "[7]" {
@@ -329,7 +329,7 @@ func TestHiddenPair(t *testing.T) {
 			}
 		}
 
-		removed, _ := test.step.logic(&solver, SolverLimit{maxBatches: test.max}, test.step)
+		removed, _ := test.step.Logic(&solver, SolverLimit{MaxBatches: test.max}, test.step)
 
 		for _, cellTest := range test.tests {
 			testCell := puzzle.Get(cellTest.column, cellTest.row)
@@ -422,7 +422,7 @@ func TestLogs(t *testing.T) {
 	})
 
 	solver := original.Solver()
-	solver.logEnabled = true
+	solver.LogEnabled = true
 	solver.Solve(SolverLimit{})
 
 	fmt.Println("TestLogs")
@@ -431,12 +431,8 @@ func TestLogs(t *testing.T) {
 
 func printSolveLogs(solver *Solver) {
 	for _, log := range solver.logs {
-		if log.placement {
-			fmt.Printf("%s placed %d at r%dc%d (cost=%d)\n", log.step.technique, log.after.value, log.after.row+1, log.after.col+1, log.cost)
-		} else {
-			fmt.Printf("%s candidates set %v from %v at r%dc%d (cost=%d)\n", log.step.technique, log.before.candidates.ToSlice(), log.after.candidates.ToSlice(), log.before.row+1, log.before.col+1, log.cost)
-		}
+		fmt.Println(log.String())
 	}
 	last := solver.GetLastLog()
-	fmt.Printf("Total cost = %d, placements = %d, batches = %d, logs = %d.\n", last.runningCost, last.runningPlacements, last.batch, last.index)
+	fmt.Printf("Total cost = %d, placements = %d, batches = %d, logs = %d.\n", last.RunningCost, last.RunningPlacements, last.Batch, last.Index)
 }

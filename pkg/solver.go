@@ -1,18 +1,20 @@
 package sudogo
 
+import "fmt"
+
 type CellGroups struct {
-	cell *Cell
-	all  []*Cell
-	box  []*Cell
-	row  []*Cell
-	col  []*Cell
+	Cell *Cell
+	All  []*Cell
+	Box  []*Cell
+	Row  []*Cell
+	Col  []*Cell
 }
 
 func (group *CellGroups) Remove(neighbor *Cell) {
-	group.all = removeValue[*Cell](group.all, neighbor)
-	group.box = removeValue[*Cell](group.box, neighbor)
-	group.row = removeValue[*Cell](group.row, neighbor)
-	group.col = removeValue[*Cell](group.col, neighbor)
+	group.All = removeValue(group.All, neighbor)
+	group.Box = removeValue(group.Box, neighbor)
+	group.Row = removeValue(group.Row, neighbor)
+	group.Col = removeValue(group.Col, neighbor)
 }
 
 type Solver struct {
@@ -20,39 +22,47 @@ type Solver struct {
 	steps         []*SolveStep
 	cells         []CellGroups
 	unsolved      []*CellGroups
-	logEnabled    bool
+	LogEnabled    bool
 	logTemplate   SolverLog
 	logs          []SolverLog
-	logTechniques map[string]int
+	LogTechniques map[string]int
 }
 
 type SolverLog struct {
-	step              *SolveStep
-	index             int
-	batch             int
-	cost              int
-	placement         bool
-	before            Cell
-	after             Cell
-	runningCost       int
-	runningPlacements int
+	Step              *SolveStep
+	Index             int
+	Batch             int
+	Cost              int
+	Placement         bool
+	Before            Cell
+	After             Cell
+	RunningCost       int
+	RunningPlacements int
+}
+
+func (log SolverLog) String() string {
+	if log.Placement {
+		return fmt.Sprintf("[%d]: %s placed %d at r%dc%d (cost=%d)", log.Index, log.Step.Technique, log.After.Value, log.After.Row+1, log.After.Col+1, log.Cost)
+	} else {
+		return fmt.Sprintf("[%d]: %s candidates %v to %v at r%dc%d (cost=%d)", log.Index, log.Step.Technique, log.Before.candidates.ToSlice(), log.After.candidates.ToSlice(), log.Before.Row+1, log.Before.Col+1, log.Cost)
+	}
 }
 
 type SolverLimit struct {
-	minCost       int
-	maxCost       int
-	maxPlacements int
-	maxLogs       int
-	maxBatches    int
+	MinCost       int
+	MaxCost       int
+	MaxPlacements int
+	MaxLogs       int
+	MaxBatches    int
 }
 
 type SolveStepLogic func(solver *Solver, limits SolverLimit, step *SolveStep) (placements int, restart bool)
 
 type SolveStep struct {
-	technique      string
-	firstCost      int
-	subsequentCost int
-	logic          SolveStepLogic
+	Technique      string
+	FirstCost      int
+	SubsequentCost int
+	Logic          SolveStepLogic
 }
 
 var StandardSolveSteps = []*SolveStep{
@@ -80,37 +90,37 @@ var GenerateSolveSteps = []*SolveStep{
 func NewSolver(starting Puzzle) Solver {
 	puzzle := starting.Clone()
 	steps := StandardSolveSteps
-	cells := make([]CellGroups, puzzle.kind.Area())
-	unsolved := make([]*CellGroups, 0, puzzle.kind.Area())
-	groupCapacity := puzzle.kind.Digits()
+	cells := make([]CellGroups, puzzle.Kind.Area())
+	unsolved := make([]*CellGroups, 0, puzzle.Kind.Area())
+	groupCapacity := puzzle.Kind.Digits()
 	allCapacity := groupCapacity * 3
 
-	for i := range puzzle.cells {
-		cell := &puzzle.cells[i]
+	for i := range puzzle.Cells {
+		cell := &puzzle.Cells[i]
 		group := &cells[i]
 
-		group.cell = cell
-		group.all = make([]*Cell, 0, allCapacity)
-		group.box = make([]*Cell, 0, groupCapacity)
-		group.row = make([]*Cell, 0, groupCapacity)
-		group.col = make([]*Cell, 0, groupCapacity)
+		group.Cell = cell
+		group.All = make([]*Cell, 0, allCapacity)
+		group.Box = make([]*Cell, 0, groupCapacity)
+		group.Row = make([]*Cell, 0, groupCapacity)
+		group.Col = make([]*Cell, 0, groupCapacity)
 		if cell.Empty() {
 			unsolved = append(unsolved, group)
 		}
-		for k := range puzzle.cells {
-			other := &puzzle.cells[k]
+		for k := range puzzle.Cells {
+			other := &puzzle.Cells[k]
 			if i != k && other.Empty() {
 				if cell.InGroup(other) {
-					group.all = append(group.all, other)
+					group.All = append(group.All, other)
 				}
 				if cell.InBox(other) {
-					group.box = append(group.box, other)
+					group.Box = append(group.Box, other)
 				}
 				if cell.InRow(other) {
-					group.row = append(group.row, other)
+					group.Row = append(group.Row, other)
 				}
 				if cell.InColumn(other) {
-					group.col = append(group.col, other)
+					group.Col = append(group.Col, other)
 				}
 			}
 		}
@@ -132,23 +142,23 @@ func (solver *Solver) SetCell(cell *Cell, value int) bool {
 	if cell == nil {
 		return false
 	}
-	return solver.SetGroup(&solver.cells[cell.id], value)
+	return solver.SetGroup(&solver.cells[cell.Id], value)
 }
 
 func (solver *Solver) SetGroup(group *CellGroups, value int) bool {
 	if group == nil || value <= 0 {
 		return false
 	}
-	set := group.cell.SetValue(value)
+	set := group.Cell.SetValue(value)
 	if set {
-		for _, other := range group.all {
+		for _, other := range group.All {
 			other.RemoveCandidate(value)
 		}
 
-		solver.unsolved = removeValue[*CellGroups](solver.unsolved, group)
+		solver.unsolved = removeValue(solver.unsolved, group)
 
 		for _, remaining := range solver.unsolved {
-			remaining.Remove(group.cell)
+			remaining.Remove(group.Cell)
 		}
 	}
 	return set
@@ -157,8 +167,8 @@ func (solver *Solver) SetGroup(group *CellGroups, value int) bool {
 func (solver *Solver) GetMinCandidateCount() int {
 	min := 0
 	for _, group := range solver.unsolved {
-		if min == 0 || min > group.cell.candidates.Count {
-			min = group.cell.candidates.Count
+		if min == 0 || min > group.Cell.candidates.Count {
+			min = group.Cell.candidates.Count
 		}
 	}
 	return min
@@ -187,19 +197,19 @@ func (solver *Solver) GetLastLog() *SolverLog {
 
 func (solver *Solver) canContinue(limits SolverLimit, cost int) bool {
 	lastLog := solver.GetLastLog()
-	if limits.maxLogs > 0 && lastLog.index >= limits.maxLogs {
+	if limits.MaxLogs > 0 && lastLog.Index >= limits.MaxLogs {
 		return false
 	}
-	if limits.maxBatches > 0 && lastLog.batch > limits.maxBatches {
+	if limits.MaxBatches > 0 && lastLog.Batch > limits.MaxBatches {
 		return false
 	}
-	if limits.maxCost > 0 && lastLog.runningCost+cost > limits.maxCost {
+	if limits.MaxCost > 0 && lastLog.RunningCost+cost > limits.MaxCost {
 		return false
 	}
-	if limits.minCost > 0 && lastLog.runningCost >= limits.minCost {
+	if limits.MinCost > 0 && lastLog.RunningCost >= limits.MinCost {
 		return false
 	}
-	if limits.maxPlacements > 0 && lastLog.runningPlacements >= limits.maxPlacements {
+	if limits.MaxPlacements > 0 && lastLog.RunningPlacements >= limits.MaxPlacements {
 		return false
 	}
 	return true
@@ -210,43 +220,43 @@ func (solver *Solver) canContinueStep(limits SolverLimit, step *SolveStep) bool 
 }
 
 func (solver *Solver) getCost(step *SolveStep) int {
-	techniqueCount := solver.logTechniques[step.technique]
-	cost := step.firstCost
+	techniqueCount := solver.LogTechniques[step.Technique]
+	cost := step.FirstCost
 	if techniqueCount > 0 {
-		cost = step.subsequentCost
+		cost = step.SubsequentCost
 	}
 	return cost
 }
 
 func (solver *Solver) logStep(step *SolveStep) {
 	cost := solver.getCost(step)
-	solver.logTechniques[step.technique]++
-	solver.logTemplate.batch++
-	solver.logTemplate.step = step
-	solver.logTemplate.cost = cost
-	solver.logTemplate.runningCost += cost
+	solver.LogTechniques[step.Technique]++
+	solver.logTemplate.Batch++
+	solver.logTemplate.Step = step
+	solver.logTemplate.Cost = cost
+	solver.logTemplate.RunningCost += cost
 }
 
 func (solver *Solver) logBefore(before *Cell) {
-	if solver.logEnabled {
+	if solver.LogEnabled {
 		log := solver.logTemplate
-		log.before = *before
+		log.Before = *before
 		solver.logs = append(solver.logs, log)
 	}
-	solver.logTemplate.index++
+	solver.logTemplate.Index++
 }
 
 func (solver *Solver) logAfter(after *Cell) {
 	last := solver.GetLastLog()
-	last.after = *after
+	last.After = *after
 }
 
 func (solver *Solver) logPlacement(after *Cell) {
 	last := solver.GetLastLog()
-	last.after = *after
-	last.placement = true
-	last.runningPlacements = last.runningPlacements + 1
-	solver.logTemplate.runningPlacements = last.runningPlacements
+	last.After = *after
+	last.Placement = true
+	last.RunningPlacements = last.RunningPlacements + 1
+	solver.logTemplate.RunningPlacements = last.RunningPlacements
 }
 
 func (solver *Solver) Solved() bool {
@@ -259,7 +269,7 @@ func (solver *Solver) Solve(limits SolverLimit) (*Puzzle, bool) {
 	for placing {
 		placing = false
 		for _, step := range steps {
-			stepPlaced, stepRestart := step.logic(solver, limits, step)
+			stepPlaced, stepRestart := step.Logic(solver, limits, step)
 
 			if !solver.canContinue(limits, 0) {
 				placing = false
@@ -282,18 +292,18 @@ func (solver *Solver) Solve(limits SolverLimit) (*Puzzle, bool) {
 // 		http://hodoku.sourceforge.net/en/tech_singles.php
 // ==================================================
 var StepNakedSingle = &SolveStep{
-	technique:      "Naked Single",
-	firstCost:      100,
-	subsequentCost: 100,
-	logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+	Technique:      "Naked Single",
+	FirstCost:      100,
+	SubsequentCost: 100,
+	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
 		placements := 0
 		for solver.canContinueStep(limits, step) {
 			group, groupValue := getNakedSingle(solver)
 			if group != nil {
 				solver.logStep(step)
-				solver.logBefore(group.cell)
+				solver.logBefore(group.Cell)
 				solver.SetGroup(group, groupValue)
-				solver.logPlacement(group.cell)
+				solver.logPlacement(group.Cell)
 				placements++
 			} else {
 				break
@@ -307,8 +317,8 @@ var StepNakedSingle = &SolveStep{
 // A cell which has one possible candidate
 func getNakedSingle(solver *Solver) (*CellGroups, int) {
 	for _, group := range solver.unsolved {
-		if group.cell.candidates.Count == 1 {
-			return group, group.cell.FirstCandidate()
+		if group.Cell.candidates.Count == 1 {
+			return group, group.Cell.FirstCandidate()
 		}
 	}
 	return nil, 0
@@ -319,18 +329,18 @@ func getNakedSingle(solver *Solver) (*CellGroups, int) {
 // 		http://hodoku.sourceforge.net/en/tech_singles.php
 // ==================================================
 var StepHiddenSingle = &SolveStep{
-	technique:      "Hidden Single",
-	firstCost:      100,
-	subsequentCost: 100,
-	logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+	Technique:      "Hidden Single",
+	FirstCost:      100,
+	SubsequentCost: 100,
+	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
 		placements := 0
 		for solver.canContinueStep(limits, step) {
 			group, groupValue := getHiddenSingle(solver)
 			if group != nil {
 				solver.logStep(step)
-				solver.logBefore(group.cell)
+				solver.logBefore(group.Cell)
 				solver.SetGroup(group, groupValue)
-				solver.logPlacement(group.cell)
+				solver.logPlacement(group.Cell)
 				placements++
 			} else {
 				break
@@ -344,15 +354,15 @@ var StepHiddenSingle = &SolveStep{
 // A cell which has a candidate that is unique to the row, cell, or box
 func getHiddenSingle(solver *Solver) (*CellGroups, int) {
 	for _, group := range solver.unsolved {
-		box := getHiddenSingleFromGroup(group.cell, group.box)
+		box := getHiddenSingleFromGroup(group.Cell, group.Box)
 		if box != 0 {
 			return group, box
 		}
-		row := getHiddenSingleFromGroup(group.cell, group.row)
+		row := getHiddenSingleFromGroup(group.Cell, group.Row)
 		if row != 0 {
 			return group, row
 		}
-		col := getHiddenSingleFromGroup(group.cell, group.col)
+		col := getHiddenSingleFromGroup(group.Cell, group.Col)
 		if col != 0 {
 			return group, col
 		}
@@ -381,10 +391,10 @@ func getHiddenSingleFromGroup(cell *Cell, group []*Cell) int {
 //		http://hodoku.sourceforge.net/en/tech_intersections.php
 // ==================================================
 var StepRemovePointingCandidates = &SolveStep{
-	technique:      "Pointing Candidates",
-	firstCost:      350,
-	subsequentCost: 200,
-	logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+	Technique:      "Pointing Candidates",
+	FirstCost:      350,
+	SubsequentCost: 200,
+	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
 		removed := false
 		if solver.canContinueStep(limits, step) {
 			removed = doRemovePointingCandidates(solver, limits, step) > 0
@@ -398,28 +408,28 @@ func doRemovePointingCandidates(solver *Solver, limits SolverLimit, step *SolveS
 	removed := 0
 
 	for _, group := range solver.unsolved {
-		cell := group.cell
+		cell := group.Cell
 		// all candidates in this box's row that are shared
 		row := cell.candidates
 		// all candidates in this box's column that are shared
 		col := cell.candidates
 
 		// remove candidates that are not shared
-		for _, other := range group.box {
-			if other.row == cell.row {
+		for _, other := range group.Box {
+			if other.Row == cell.Row {
 				row.And(other.candidates)
 			}
-			if other.col == cell.col {
+			if other.Col == cell.Col {
 				col.And(other.candidates)
 			}
 		}
 
 		// remove candidates that exist outside the row or column
-		for _, other := range group.box {
-			if other.row != cell.row {
+		for _, other := range group.Box {
+			if other.Row != cell.Row {
 				row.Remove(other.candidates)
 			}
-			if other.col != cell.col {
+			if other.Col != cell.Col {
 				col.Remove(other.candidates)
 			}
 		}
@@ -427,16 +437,16 @@ func doRemovePointingCandidates(solver *Solver, limits SolverLimit, step *SolveS
 		// what is remaining are candidates confined to the cells row in the box
 		if row.Count > 0 {
 			hasOverlap := false
-			for _, other := range group.row {
-				if other.box != cell.box && other.candidates.Overlaps(row) {
+			for _, other := range group.Row {
+				if other.Box != cell.Box && other.candidates.Overlaps(row) {
 					hasOverlap = true
 					break
 				}
 			}
 			if hasOverlap {
 				solver.logStep(step)
-				for _, other := range group.row {
-					if other.box != cell.box && other.candidates.Overlaps(row) {
+				for _, other := range group.Row {
+					if other.Box != cell.Box && other.candidates.Overlaps(row) {
 						solver.logBefore(other)
 						removed += other.candidates.Remove(row)
 						solver.logAfter(other)
@@ -451,16 +461,16 @@ func doRemovePointingCandidates(solver *Solver, limits SolverLimit, step *SolveS
 		// what is remaining are candidates confined to the cells column in the box
 		if col.Count > 0 {
 			hasOverlap := false
-			for _, other := range group.col {
-				if other.box != cell.box && other.candidates.Overlaps(row) {
+			for _, other := range group.Col {
+				if other.Box != cell.Box && other.candidates.Overlaps(row) {
 					hasOverlap = true
 					break
 				}
 			}
 			if hasOverlap {
 				solver.logStep(step)
-				for _, other := range group.col {
-					if other.box != cell.box && other.candidates.Overlaps(row) {
+				for _, other := range group.Col {
+					if other.Box != cell.Box && other.candidates.Overlaps(row) {
 						solver.logBefore(other)
 						removed += other.candidates.Remove(col)
 						solver.logAfter(other)
@@ -482,10 +492,10 @@ func doRemovePointingCandidates(solver *Solver, limits SolverLimit, step *SolveS
 // ==================================================
 
 var StepRemoveClaimingCandidates = &SolveStep{
-	technique:      "Claiming Candidates",
-	firstCost:      350,
-	subsequentCost: 200,
-	logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+	Technique:      "Claiming Candidates",
+	FirstCost:      350,
+	SubsequentCost: 200,
+	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
 		removed := false
 		if solver.canContinueStep(limits, step) {
 			removed = doRemoveClaimingCandidates(solver, limits, step) > 0
@@ -499,14 +509,14 @@ func doRemoveClaimingCandidates(solver *Solver, limits SolverLimit, step *SolveS
 	removed := 0
 
 	for _, group := range solver.unsolved {
-		cell := group.cell
+		cell := group.Cell
 
 		// all candidates in this row that are not shared outside of the box
 		row := cell.candidates
 
 		// remove candidates from row that exist in the cells row outside the box
-		for _, other := range group.row {
-			if other.box != cell.box {
+		for _, other := range group.Row {
+			if other.Box != cell.Box {
 				row.Remove(other.candidates)
 			}
 		}
@@ -514,8 +524,8 @@ func doRemoveClaimingCandidates(solver *Solver, limits SolverLimit, step *SolveS
 		// what is remaining are the candidates unique to the row outside this box
 		if row.Count > 0 {
 			solver.logStep(step)
-			for _, other := range group.box {
-				if other.row != cell.row && other.candidates.Overlaps(row) {
+			for _, other := range group.Box {
+				if other.Row != cell.Row && other.candidates.Overlaps(row) {
 					solver.logBefore(other)
 					removed += other.candidates.Remove(row)
 					solver.logAfter(other)
@@ -530,8 +540,8 @@ func doRemoveClaimingCandidates(solver *Solver, limits SolverLimit, step *SolveS
 		col := cell.candidates
 
 		// remove candidates from column that exist in the cells column outside the box
-		for _, other := range group.col {
-			if other.box != cell.box {
+		for _, other := range group.Col {
+			if other.Box != cell.Box {
 				col.Remove(other.candidates)
 			}
 		}
@@ -539,8 +549,8 @@ func doRemoveClaimingCandidates(solver *Solver, limits SolverLimit, step *SolveS
 		// what is remaining are the candidates unique to the column outside this box
 		if col.Count > 0 {
 			solver.logStep(step)
-			for _, other := range group.box {
-				if other.col != cell.col && other.candidates.Overlaps(row) {
+			for _, other := range group.Box {
+				if other.Col != cell.Col && other.candidates.Overlaps(col) {
 					solver.logBefore(other)
 					removed += other.candidates.Remove(col)
 					solver.logAfter(other)
@@ -561,10 +571,10 @@ func doRemoveClaimingCandidates(solver *Solver, limits SolverLimit, step *SolveS
 // ==================================================
 func CreateStepRemoveNakedSubsetCandidates(subsetSize int, technique string, firstCost int, subsequentCost int) *SolveStep {
 	return &SolveStep{
-		technique:      technique,
-		firstCost:      firstCost,
-		subsequentCost: subsequentCost,
-		logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+		Technique:      technique,
+		FirstCost:      firstCost,
+		SubsequentCost: subsequentCost,
+		Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
 			removed := false
 			if solver.canContinueStep(limits, step) {
 				removed = doRemoveNakedSubsetCandidates(solver, subsetSize, limits, step) > 0
@@ -583,20 +593,20 @@ func doRemoveNakedSubsetCandidates(solver *Solver, subsetSize int, limits Solver
 	removed := 0
 
 	for _, group := range solver.unsolved {
-		cell := group.cell
+		cell := group.Cell
 
 		if cell.candidates.Count != subsetSize {
 			continue
 		}
-		removed += removeNakedSubsetCandidatesFromGroup(group, subsetSize, solver, limits, step, group.row)
+		removed += removeNakedSubsetCandidatesFromGroup(group, subsetSize, solver, limits, step, group.Row)
 		if !solver.canContinueStep(limits, step) {
 			break
 		}
-		removed += removeNakedSubsetCandidatesFromGroup(group, subsetSize, solver, limits, step, group.col)
+		removed += removeNakedSubsetCandidatesFromGroup(group, subsetSize, solver, limits, step, group.Col)
 		if !solver.canContinueStep(limits, step) {
 			break
 		}
-		removed += removeNakedSubsetCandidatesFromGroup(group, subsetSize, solver, limits, step, group.box)
+		removed += removeNakedSubsetCandidatesFromGroup(group, subsetSize, solver, limits, step, group.Box)
 		if !solver.canContinueStep(limits, step) {
 			break
 		}
@@ -609,7 +619,7 @@ func doRemoveNakedSubsetCandidates(solver *Solver, subsetSize int, limits Solver
 func removeNakedSubsetCandidatesFromGroup(cellGroup *CellGroups, subsetSize int, solver *Solver, limits SolverLimit, step *SolveStep, group []*Cell) int {
 	removed := 0
 	matches := 1
-	candidates := cellGroup.cell.candidates
+	candidates := cellGroup.Cell.candidates
 	sameBox := true
 	sameRow := true
 	sameCol := true
@@ -617,21 +627,21 @@ func removeNakedSubsetCandidatesFromGroup(cellGroup *CellGroups, subsetSize int,
 	for _, other := range group {
 		if other.candidates.Value == candidates.Value {
 			matches++
-			sameBox = sameBox && other.box == cellGroup.cell.box
-			sameRow = sameRow && other.row == cellGroup.cell.row
-			sameCol = sameCol && other.col == cellGroup.cell.col
+			sameBox = sameBox && other.Box == cellGroup.Cell.Box
+			sameRow = sameRow && other.Row == cellGroup.Cell.Row
+			sameCol = sameCol && other.Col == cellGroup.Cell.Col
 		}
 	}
 
 	if matches == subsetSize {
 		if sameBox {
-			removed += removeCandidatesFromDifferent(cellGroup.box, candidates, solver, limits, step)
+			removed += removeCandidatesFromDifferent(cellGroup.Box, candidates, solver, limits, step)
 		}
 		if sameRow && solver.canContinueStep(limits, step) {
-			removed += removeCandidatesFromDifferent(cellGroup.row, candidates, solver, limits, step)
+			removed += removeCandidatesFromDifferent(cellGroup.Row, candidates, solver, limits, step)
 		}
 		if sameCol && solver.canContinueStep(limits, step) {
-			removed += removeCandidatesFromDifferent(cellGroup.col, candidates, solver, limits, step)
+			removed += removeCandidatesFromDifferent(cellGroup.Col, candidates, solver, limits, step)
 		}
 	}
 	return removed
@@ -711,10 +721,10 @@ func (dist *candidateDistribution) set(cells []*Cell) {
 // ==================================================
 func CreateStepRemoveHiddenSubsetCandidates(subsetSize int, technique string, firstCost int, subsequentCost int) *SolveStep {
 	return &SolveStep{
-		technique:      technique,
-		firstCost:      firstCost,
-		subsequentCost: subsequentCost,
-		logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+		Technique:      technique,
+		FirstCost:      firstCost,
+		SubsequentCost: subsequentCost,
+		Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
 			removed := false
 			if solver.canContinueStep(limits, step) {
 				removed = doRemoveHiddenSubsetCandidates(solver, subsetSize, limits, step) > 0
@@ -730,19 +740,19 @@ var StepRemoveHiddenSubsetCandidates4 = CreateStepRemoveHiddenSubsetCandidates(4
 
 // Find hidden subsets and remove them as possible values for shared groups
 func doRemoveHiddenSubsetCandidates(solver *Solver, subsetSize int, limits SolverLimit, step *SolveStep) int {
-	dist := newDistribution(solver.puzzle.kind.Size())
+	dist := newDistribution(solver.puzzle.Kind.Size())
 	rowsTested := Bitset{}
 	colsTested := Bitset{}
 	boxsTested := Bitset{}
 	removed := 0
 
 	for _, group := range solver.unsolved {
-		cell := group.cell
+		cell := group.Cell
 
 		// Only test a row/column/box of an unsolved cell once
-		if !rowsTested.Has(cell.row) {
-			rowsTested.Set(cell.row, true)
-			fullRow := group.row[:]
+		if !rowsTested.Has(cell.Row) {
+			rowsTested.Set(cell.Row, true)
+			fullRow := group.Row[:]
 			fullRow = append(fullRow, cell)
 			dist.set(fullRow)
 			removed += doRemoveHiddenSubset(&dist, subsetSize, solver, limits, step)
@@ -750,9 +760,9 @@ func doRemoveHiddenSubsetCandidates(solver *Solver, subsetSize int, limits Solve
 				break
 			}
 		}
-		if !colsTested.Has(cell.col) {
-			colsTested.Set(cell.col, true)
-			fullCol := group.col[:]
+		if !colsTested.Has(cell.Col) {
+			colsTested.Set(cell.Col, true)
+			fullCol := group.Col[:]
 			fullCol = append(fullCol, cell)
 			dist.set(fullCol)
 			removed += doRemoveHiddenSubset(&dist, subsetSize, solver, limits, step)
@@ -760,9 +770,9 @@ func doRemoveHiddenSubsetCandidates(solver *Solver, subsetSize int, limits Solve
 				break
 			}
 		}
-		if !boxsTested.Has(cell.box) {
-			boxsTested.Set(cell.box, true)
-			fullBox := group.box[:]
+		if !boxsTested.Has(cell.Box) {
+			boxsTested.Set(cell.Box, true)
+			fullBox := group.Box[:]
 			fullBox = append(fullBox, cell)
 			dist.set(fullBox)
 			removed += doRemoveHiddenSubset(&dist, subsetSize, solver, limits, step)

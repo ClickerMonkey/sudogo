@@ -6,8 +6,8 @@ import (
 )
 
 type Puzzle struct {
-	kind  *Kind
-	cells []Cell
+	Kind  *Kind
+	Cells []Cell
 }
 
 func New(kind *Kind) Puzzle {
@@ -17,11 +17,11 @@ func New(kind *Kind) Puzzle {
 
 	for i := 0; i < cellCount; i++ {
 		cell := &cells[i]
-		cell.id = i
-		cell.value = 0
-		cell.row = i / size
-		cell.col = i % size
-		cell.box = ((cell.row / boxsHigh) * boxHeight) + (cell.col / boxsWide)
+		cell.Id = i
+		cell.Value = 0
+		cell.Row = i / size
+		cell.Col = i % size
+		cell.Box = ((cell.Row / boxsHigh) * boxHeight) + (cell.Col / boxsWide)
 		cell.candidates.Fill(size)
 	}
 
@@ -29,20 +29,20 @@ func New(kind *Kind) Puzzle {
 }
 
 func (puzzle *Puzzle) Clone() Puzzle {
-	kind := puzzle.kind
-	n := len(puzzle.cells)
+	kind := puzzle.Kind
+	n := len(puzzle.Cells)
 	cells := make([]Cell, n)
 
-	copy(cells, puzzle.cells)
+	copy(cells, puzzle.Cells)
 
 	return Puzzle{kind, cells}
 }
 
 func (puzzle *Puzzle) Clear() {
-	candidates := puzzle.kind.Digits()
-	for i := range puzzle.cells {
-		c := &puzzle.cells[i]
-		c.value = 0
+	candidates := puzzle.Kind.Digits()
+	for i := range puzzle.Cells {
+		c := &puzzle.Cells[i]
+		c.Value = 0
 		c.candidates.Fill(candidates)
 	}
 }
@@ -52,7 +52,7 @@ func (puzzle *Puzzle) Solver() Solver {
 }
 
 func (puzzle *Puzzle) Get(col int, row int) *Cell {
-	return &puzzle.cells[row*puzzle.kind.Size()+col]
+	return &puzzle.Cells[row*puzzle.Kind.Size()+col]
 }
 
 func (puzzle *Puzzle) Set(col int, row int, value int) bool {
@@ -63,8 +63,8 @@ func (puzzle *Puzzle) SetCell(cell *Cell, value int) bool {
 	set := cell.SetValue(value)
 
 	if set {
-		for i := range puzzle.cells {
-			c := &puzzle.cells[i]
+		for i := range puzzle.Cells {
+			c := &puzzle.Cells[i]
 			if c.Empty() && c.InGroup(cell) {
 				c.RemoveCandidate(value)
 			}
@@ -75,17 +75,17 @@ func (puzzle *Puzzle) SetCell(cell *Cell, value int) bool {
 }
 
 func (puzzle *Puzzle) Remove(col int, row int) bool {
-	return puzzle.RemoveCell(&puzzle.cells[row*puzzle.kind.Size()+col])
+	return puzzle.RemoveCell(&puzzle.Cells[row*puzzle.Kind.Size()+col])
 }
 
 func (puzzle *Puzzle) RemoveCell(cell *Cell) bool {
 	removed := cell.HasValue()
 	if removed {
-		cell.value = 0
+		cell.Value = 0
 		cell.candidates = puzzle.GetCandidatesFor(cell)
 
-		for i := range puzzle.cells {
-			other := &puzzle.cells[i]
+		for i := range puzzle.Cells {
+			other := &puzzle.Cells[i]
 			if cell.InGroup(other) {
 				if other.Empty() {
 					other.candidates = puzzle.GetCandidatesFor(other)
@@ -97,7 +97,7 @@ func (puzzle *Puzzle) RemoveCell(cell *Cell) bool {
 }
 
 func (puzzle *Puzzle) SetAll(values [][]int) int {
-	size := puzzle.kind.Size()
+	size := puzzle.Kind.Size()
 	sets := 0
 
 	puzzle.Clear()
@@ -120,26 +120,26 @@ func (puzzle *Puzzle) SetAll(values [][]int) int {
 }
 
 func (puzzle *Puzzle) GetAll() [][]int {
-	s := puzzle.kind.Size()
+	s := puzzle.Kind.Size()
 	all := make([][]int, s)
 
 	for y := 0; y < s; y++ {
 		all[y] = make([]int, s)
 	}
 
-	for _, c := range puzzle.cells {
-		all[c.row][c.col] = c.value
+	for _, c := range puzzle.Cells {
+		all[c.Row][c.Col] = c.Value
 	}
 
 	return all
 }
 
 func (puzzle *Puzzle) GetRow(rowIndex int) []int {
-	row := make([]int, puzzle.kind.Size())
+	row := make([]int, puzzle.Kind.Size())
 
-	for _, c := range puzzle.cells {
-		if c.row == rowIndex {
-			row[c.col] = c.value
+	for _, c := range puzzle.Cells {
+		if c.Row == rowIndex {
+			row[c.Col] = c.Value
 		}
 	}
 
@@ -147,12 +147,12 @@ func (puzzle *Puzzle) GetRow(rowIndex int) []int {
 }
 
 func (puzzle *Puzzle) GetRowCells(rowIndex int) []*Cell {
-	row := make([]*Cell, puzzle.kind.Size())
+	row := make([]*Cell, puzzle.Kind.Size())
 
-	for i := range puzzle.cells {
-		c := &puzzle.cells[i]
-		if c.row == rowIndex {
-			row[c.col] = c
+	for i := range puzzle.Cells {
+		c := &puzzle.Cells[i]
+		if c.Row == rowIndex {
+			row[c.Col] = c
 		}
 	}
 
@@ -160,11 +160,11 @@ func (puzzle *Puzzle) GetRowCells(rowIndex int) []*Cell {
 }
 
 func (puzzle *Puzzle) GetColumn(columnIndex int) []int {
-	column := make([]int, puzzle.kind.Size())
+	column := make([]int, puzzle.Kind.Size())
 
-	for _, c := range puzzle.cells {
-		if c.col == columnIndex {
-			column[c.row] = c.value
+	for _, c := range puzzle.Cells {
+		if c.Col == columnIndex {
+			column[c.Row] = c.Value
 		}
 	}
 
@@ -172,12 +172,12 @@ func (puzzle *Puzzle) GetColumn(columnIndex int) []int {
 }
 
 func (puzzle *Puzzle) GetColumnCells(columnIndex int) []*Cell {
-	column := make([]*Cell, puzzle.kind.Size())
+	column := make([]*Cell, puzzle.Kind.Size())
 
-	for i := range puzzle.cells {
-		c := &puzzle.cells[i]
-		if c.col == columnIndex {
-			column[c.row] = c
+	for i := range puzzle.Cells {
+		c := &puzzle.Cells[i]
+		if c.Col == columnIndex {
+			column[c.Row] = c
 		}
 	}
 
@@ -185,13 +185,13 @@ func (puzzle *Puzzle) GetColumnCells(columnIndex int) []*Cell {
 }
 
 func (puzzle *Puzzle) GetSymmetric(cell *Cell) *Cell {
-	n := puzzle.kind.Size() - 1
+	n := puzzle.Kind.Size() - 1
 
-	return puzzle.Get(n-cell.col, n-cell.row)
+	return puzzle.Get(n-cell.Col, n-cell.Row)
 }
 
 func (puzzle *Puzzle) IsSolved() bool {
-	size := puzzle.kind.Size()
+	size := puzzle.Kind.Size()
 	rows := make([]Candidates, size)
 	cols := make([]Candidates, size)
 	boxs := make([]Candidates, size)
@@ -199,15 +199,15 @@ func (puzzle *Puzzle) IsSolved() bool {
 	complete := Candidates{}
 	complete.Fill(size)
 
-	for i := range puzzle.cells {
-		cell := &puzzle.cells[i]
+	for i := range puzzle.Cells {
+		cell := &puzzle.Cells[i]
 		if cell.Empty() {
 			return false
 		}
 
-		rows[cell.row].Set(cell.value, true)
-		cols[cell.col].Set(cell.value, true)
-		boxs[cell.box].Set(cell.value, true)
+		rows[cell.Row].Set(cell.Value, true)
+		cols[cell.Col].Set(cell.Value, true)
+		boxs[cell.Box].Set(cell.Value, true)
 	}
 
 	for i := 0; i < size; i++ {
@@ -227,12 +227,12 @@ func (puzzle *Puzzle) IsSolved() bool {
 
 func (puzzle *Puzzle) GetCandidatesFor(cell *Cell) Candidates {
 	candidates := Candidates{}
-	candidates.Fill(puzzle.kind.Size())
+	candidates.Fill(puzzle.Kind.Size())
 
-	for k := range puzzle.cells {
-		other := &puzzle.cells[k]
+	for k := range puzzle.Cells {
+		other := &puzzle.Cells[k]
 		if cell.InGroup(other) && other.HasValue() {
-			candidates.Set(other.value, false)
+			candidates.Set(other.Value, false)
 		}
 	}
 
@@ -240,34 +240,34 @@ func (puzzle *Puzzle) GetCandidatesFor(cell *Cell) Candidates {
 }
 
 func (puzzle *Puzzle) IsValid() bool {
-	size := puzzle.kind.Size()
+	size := puzzle.Kind.Size()
 	rows := make([]Candidates, size)
 	cols := make([]Candidates, size)
 	boxs := make([]Candidates, size)
 
-	for i := range puzzle.cells {
-		cell := &puzzle.cells[i]
+	for i := range puzzle.Cells {
+		cell := &puzzle.Cells[i]
 
-		if cell.value > 0 {
-			if rows[cell.row].Has(cell.value) {
+		if cell.Value > 0 {
+			if rows[cell.Row].Has(cell.Value) {
 				return false
 			}
-			if cols[cell.col].Has(cell.value) {
+			if cols[cell.Col].Has(cell.Value) {
 				return false
 			}
-			if boxs[cell.box].Has(cell.value) {
+			if boxs[cell.Box].Has(cell.Value) {
 				return false
 			}
 
-			rows[cell.row].Set(cell.value, true)
-			cols[cell.col].Set(cell.value, true)
-			boxs[cell.box].Set(cell.value, true)
+			rows[cell.Row].Set(cell.Value, true)
+			cols[cell.Col].Set(cell.Value, true)
+			boxs[cell.Box].Set(cell.Value, true)
 		}
 
 		candidates := puzzle.GetCandidatesFor(cell)
 
-		if cell.value > 0 {
-			if !candidates.Has(cell.value) {
+		if cell.Value > 0 {
+			if !candidates.Has(cell.Value) {
 				return false
 			}
 		} else {
@@ -284,12 +284,12 @@ func (puzzle *Puzzle) IsValid() bool {
 
 func (puzzle *Puzzle) UniqueId() string {
 	sb := strings.Builder{}
-	for k := range puzzle.cells {
-		other := &puzzle.cells[k]
+	for k := range puzzle.Cells {
+		other := &puzzle.Cells[k]
 		if other.Empty() {
 			sb.WriteString(".")
 		} else {
-			sb.WriteString(fmt.Sprint(other.value))
+			sb.WriteString(fmt.Sprint(other.Value))
 		}
 	}
 	return sb.String()
@@ -318,12 +318,12 @@ func (puzzle *Puzzle) GetSolutions(limits SolutionLimit) []*Solver {
 		if !solved {
 			min := solver.GetMinCandidateCount()
 			minCell := solver.GetGroupWhere(func(group *CellGroups) bool {
-				return group.cell.candidates.Count == min
+				return group.Cell.candidates.Count == min
 			})
 			if minCell != nil {
-				for _, candidate := range minCell.cell.Candidates() {
+				for _, candidate := range minCell.Cell.Candidates() {
 					newSolver := solution.Solver()
-					if newSolver.Set(minCell.cell.col, minCell.cell.row, candidate) {
+					if newSolver.Set(minCell.Cell.Col, minCell.Cell.Row, candidate) {
 						solvers.Offer(newSolver)
 					}
 				}

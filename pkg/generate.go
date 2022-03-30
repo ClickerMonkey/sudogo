@@ -7,9 +7,9 @@ import (
 
 // Generates puzzles of the given kind using a particular random number generator.
 type Generator struct {
-	kind   *Kind
+	Kind   *Kind
 	solver Solver
-	random *rand.Rand
+	Random *rand.Rand
 }
 
 func NewGenerator(kind *Kind) Generator {
@@ -31,7 +31,7 @@ func NewRandomGenerator(kind *Kind, random *rand.Rand) Generator {
 }
 
 func (gen *Generator) Reset() {
-	gen.solver = generatorSolver(gen.kind)
+	gen.solver = generatorSolver(gen.Kind)
 }
 
 func (gen *Generator) Puzzle() *Puzzle {
@@ -51,22 +51,22 @@ func (gen *Generator) GetUnsolved() *CellGroups {
 }
 
 func (gen *Generator) GetRandomUnsolved() *CellGroups {
-	return randomPointer(gen.random, gen.solver.unsolved)
+	return randomPointer(gen.Random, gen.solver.unsolved)
 }
 
 func (gen *Generator) GetRandom(match func(other *Cell) bool) *CellGroups {
 	matches := 0
 	for _, group := range gen.solver.cells {
-		if match(group.cell) {
+		if match(group.Cell) {
 			matches++
 		}
 	}
 	if matches == 0 {
 		return nil
 	}
-	chosen := gen.random.Intn(matches)
+	chosen := gen.Random.Intn(matches)
 	for _, group := range gen.solver.cells {
-		if match(group.cell) {
+		if match(group.Cell) {
 			chosen--
 			if chosen < 0 {
 				return &group
@@ -97,7 +97,7 @@ func (gen *Generator) Attempt() *Puzzle {
 		}
 
 		randomGroup := gen.GetRandomUnsolved()
-		randomValue := randomElement[int](gen.random, randomGroup.cell.Candidates(), 0)
+		randomValue := randomElement(gen.Random, randomGroup.Cell.Candidates(), 0)
 
 		gen.solver.SetGroup(randomGroup, randomValue)
 	}
@@ -123,63 +123,67 @@ func (gen *Generator) Generate() (*Puzzle, int) {
 
 type ClearLimits struct {
 	SolverLimit
-	symmetric bool
-	maxStates int
+	Symmetric bool
+	MaxStates int
 }
 
 func (limits ClearLimits) Extend(extend ClearLimits) ClearLimits {
 	out := limits
-	if extend.symmetric && !out.symmetric {
-		out.symmetric = true
+	if extend.Symmetric && !out.Symmetric {
+		out.Symmetric = true
 	}
-	if extend.maxBatches > 0 {
-		out.maxBatches = extend.maxBatches
+	if extend.MaxBatches > 0 {
+		out.MaxBatches = extend.MaxBatches
 	}
-	if extend.maxCost > 0 {
-		out.maxCost = extend.maxCost
+	if extend.MaxCost > 0 {
+		out.MaxCost = extend.MaxCost
 	}
-	if extend.minCost > 0 {
-		out.minCost = extend.minCost
+	if extend.MinCost > 0 {
+		out.MinCost = extend.MinCost
 	}
-	if extend.maxLogs > 0 {
-		out.maxLogs = extend.maxLogs
+	if extend.MaxLogs > 0 {
+		out.MaxLogs = extend.MaxLogs
 	}
-	if extend.maxPlacements > 0 {
-		out.maxPlacements = extend.maxPlacements
+	if extend.MaxPlacements > 0 {
+		out.MaxPlacements = extend.MaxPlacements
 	}
-	if extend.maxStates > 0 {
-		out.maxStates = extend.maxStates
+	if extend.MaxStates > 0 {
+		out.MaxStates = extend.MaxStates
 	}
 	return out
 }
 
 var DifficultyBeginner = ClearLimits{
-	SolverLimit: SolverLimit{minCost: 3600, maxCost: 4500},
-	symmetric:   true,
+	SolverLimit: SolverLimit{MinCost: 3600, MaxCost: 4500},
+	Symmetric:   true,
 }
 var DifficultyEasy = ClearLimits{
-	SolverLimit: SolverLimit{minCost: 4300, maxCost: 5500},
-	symmetric:   true,
+	SolverLimit: SolverLimit{MinCost: 4300, MaxCost: 5500},
+	Symmetric:   true,
 }
 var DifficultyMedium = ClearLimits{
-	SolverLimit: SolverLimit{minCost: 5300, maxCost: 6900},
-	symmetric:   true,
+	SolverLimit: SolverLimit{MinCost: 5300, MaxCost: 6900},
+	Symmetric:   true,
+}
+var DifficultyHard = ClearLimits{
+	SolverLimit: SolverLimit{MinCost: 6000, MaxCost: 7200},
+	Symmetric:   false,
 }
 var DifficultyTricky = ClearLimits{
-	SolverLimit: SolverLimit{minCost: 6500, maxCost: 9300},
-	symmetric:   true,
+	SolverLimit: SolverLimit{MinCost: 6500, MaxCost: 9300},
+	Symmetric:   false,
 }
 var DifficultyFiendish = ClearLimits{
-	SolverLimit: SolverLimit{minCost: 8300, maxCost: 14000},
-	symmetric:   false,
+	SolverLimit: SolverLimit{MinCost: 8300, MaxCost: 14000},
+	Symmetric:   false,
 }
 var DifficultyDiabolical = ClearLimits{
-	SolverLimit: SolverLimit{minCost: 11000, maxCost: 25000},
-	symmetric:   false,
+	SolverLimit: SolverLimit{MinCost: 11000, MaxCost: 25000},
+	Symmetric:   false,
 }
 
 func (gen *Generator) ClearCells(puzzle *Puzzle, limits ClearLimits) (*Puzzle, int) {
-	if puzzle == nil || (limits.maxBatches == 0 && limits.maxCost == 0 && limits.maxLogs == 0 && limits.maxPlacements == 0 && limits.maxStates == 0) {
+	if puzzle == nil || (limits.MaxBatches == 0 && limits.MaxCost == 0 && limits.MaxLogs == 0 && limits.MaxPlacements == 0 && limits.MaxStates == 0) {
 		return nil, 0
 	}
 
@@ -187,17 +191,15 @@ func (gen *Generator) ClearCells(puzzle *Puzzle, limits ClearLimits) (*Puzzle, i
 
 	type AttemptState struct {
 		puzzle    Puzzle
-		solver    Solver
 		available []*Cell
 	}
 
-	attempts := NewStack[AttemptState](limits.maxPlacements)
+	attempts := NewStack[AttemptState](limits.MaxPlacements)
 
 	initial := puzzle.Clone()
 	attempts.Push(AttemptState{
 		puzzle: initial,
-		solver: initial.Solver(),
-		available: pointersWhere(initial.cells, func(cell *Cell) bool {
+		available: pointersWhere(initial.Cells, func(cell *Cell) bool {
 			return cell.HasValue()
 		}),
 	})
@@ -211,16 +213,15 @@ func (gen *Generator) ClearCells(puzzle *Puzzle, limits ClearLimits) (*Puzzle, i
 		}
 
 		next := last.puzzle.Clone()
-		nextSolver := next.Solver()
 
-		cell := randomPointer(gen.random, last.available)
+		cell := randomPointer(gen.Random, last.available)
 		cellSymmetric := last.puzzle.GetSymmetric(cell)
 
-		doSymmetric := limits.symmetric && cellSymmetric.HasValue()
+		doSymmetric := limits.Symmetric && cellSymmetric.HasValue()
 
-		next.Remove(cell.col, cell.row)
+		next.Remove(cell.Col, cell.Row)
 		if doSymmetric {
-			next.Remove(cellSymmetric.col, cellSymmetric.row)
+			next.Remove(cellSymmetric.Col, cellSymmetric.Row)
 		}
 
 		last.available = removeValue(last.available, cell)
@@ -245,13 +246,12 @@ func (gen *Generator) ClearCells(puzzle *Puzzle, limits ClearLimits) (*Puzzle, i
 				return &next, states
 			}
 
-			if limits.maxStates > 0 && states >= limits.maxStates {
+			if limits.MaxStates > 0 && states >= limits.MaxStates {
 				break
 			}
 
 			attempts.Push(AttemptState{
 				puzzle:    next,
-				solver:    nextSolver,
 				available: sliceClone(last.available),
 			})
 		}

@@ -23,8 +23,8 @@ func (puzzle *Puzzle) ToString() string {
 }
 
 func (puzzle *Puzzle) Write(out io.Writer) {
-	boxsWide, boxsHigh, boxWidth, boxHeight, _ := puzzle.kind.GetDimensions()
-	digitSize := puzzle.kind.DigitsSize()
+	boxsWide, boxsHigh, boxWidth, boxHeight, _ := puzzle.Kind.GetDimensions()
+	digitSize := puzzle.Kind.DigitsSize()
 	digitFormat := "%" + strconv.Itoa(digitSize) + "d"
 	empty := strings.Repeat(" ", digitSize)
 	thickH := strings.Repeat("\u2550", digitSize)
@@ -115,17 +115,17 @@ func (instance *Puzzle) PrintCells() {
 func (cell *Cell) ToString() string {
 	cellValue := "_"
 	if cell.HasValue() {
-		cellValue = strconv.Itoa(cell.value)
+		cellValue = strconv.Itoa(cell.Value)
 	}
 
-	return fmt.Sprintf("{%d,%d} = %s %s", cell.col, cell.row, cellValue, fmt.Sprint(cell.Candidates()))
+	return fmt.Sprintf("{%d,%d} = %s %s", cell.Col, cell.Row, cellValue, fmt.Sprint(cell.Candidates()))
 }
 
 func (instance *Puzzle) ToCellsString() string {
 	s := ""
 
-	for i := range instance.cells {
-		s += instance.cells[i].ToString() + "\n"
+	for i := range instance.Cells {
+		s += instance.Cells[i].ToString() + "\n"
 	}
 
 	return s
@@ -139,8 +139,8 @@ func (puzzle *Puzzle) ToCandidatesString() string {
 }
 
 func (puzzle *Puzzle) WriteCandidates(out io.Writer) {
-	boxsWide, boxsHigh, boxWidth, boxHeight, _ := puzzle.kind.GetDimensions()
-	digitSize := puzzle.kind.DigitsSize()
+	boxsWide, boxsHigh, boxWidth, boxHeight, _ := puzzle.Kind.GetDimensions()
+	digitSize := puzzle.Kind.DigitsSize()
 	digitFormat := "%" + strconv.Itoa(digitSize) + "d"
 	empty := strings.Repeat(" ", digitSize)
 	solved := strings.Repeat("\u2591", digitSize)
@@ -214,7 +214,7 @@ func (puzzle *Puzzle) WriteCandidates(out io.Writer) {
 				} else {
 					for cellCol := 0; cellCol < boxWidth; cellCol++ {
 						if cellCol == centerX && cellRow == centerY {
-							io.WriteString(out, fmt.Sprintf(digitFormat, cell.value))
+							io.WriteString(out, fmt.Sprintf(digitFormat, cell.Value))
 						} else {
 							io.WriteString(out, solved)
 						}
