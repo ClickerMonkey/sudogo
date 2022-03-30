@@ -1,6 +1,13 @@
 # sudogo
 Advanced Sudoku solving &amp; generating with Go
 
+### Features
+- Handles sudoku puzzles up to 64x64.
+- Generates any number of puzzles with configurable difficulty to the console or PDF with solutions, candidates, and solution steps optionally included.
+- Lists the steps it took to solve a puzzle and the techniques used.
+- Finds all solutions for invalid puzzles.
+- Is extendable and very configurable.
+
 ## Importing
 
 ```go
@@ -32,20 +39,20 @@ func main() {
 
   // Solve
   solver := puzzle.Solver()
-  solution, solved := solver.Solve()
+  solution, solved := solver.Solve(su.SolverLimit{})
   if solved {
     println("Solved!")
   }
 
   // Get all solutions
-  solutions := puzzle.GetSolutions(-1)
+  solutions := puzzle.GetSolutions(su.SolutionLimit{})
 
   // Generate
   gen := su.Classic.Generator()
   new, attempts := gen.Generate()
 
   // Clear out a generated puzzle so we can solve it
-  cleared, _ := gen.ClearCells(new, 50 /*hard*/, false, -1)
+  cleared, _ := gen.ClearCells(new, su.DifficultyMedium)
   cleared.Print() // solve this!
 
   // Puzzles of different sizes
@@ -62,27 +69,28 @@ Notable functions for the main types
 
 ### Puzzle
 - Solver() Solver
-- Get(col, row) *Cell
+- Get(col, row) \*Cell
 - Set(col, row, value) bool
 - SetAll(values) int
 - IsSolved() bool
 - IsValid() bool
 - UniqueId() string
 - HasUniqueSolution() bool
-- GetSolutions(max) []*Puzzle
+- GetSolutions(limits) []\*Solver
 - Print() / ToString() / Write(out)
 - PrintCandidates() / ToCandidatesString() / WriteCandidates(out)
 
 ### Solver
 - Set(col, row, value) bool
 - Solved() bool
-- Place(count) int
+- Solve(limits) (\*Puzzle, bool)
+- GetLogs() []SolveLog
 
 ### Generator
-- Attempt() *Puzzle
-- Attempts(tries) (*Puzzle,int)
-- Generate() (*Puzzle,int)
-- ClearCells(puzzle,count,symmetric,maxStates) (*Puzzle,int)
+- Attempt() \*Puzzle
+- Attempts(tries) (\*Puzzle,int)
+- Generate() (\*Puzzle,int)
+- ClearCells(puzzle,limits) (\*Puzzle,int)
  
 ### Kind
 - Create(values) Puzzle
