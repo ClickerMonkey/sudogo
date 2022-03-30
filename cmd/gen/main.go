@@ -63,25 +63,40 @@ func main() {
 		},
 	}
 
-	chosenLimits.MaxStates = *clearDepth
+	typeScale := float64(kind.Area()) / 81.0
 
+	if *clearDepth != 64 {
+		chosenLimits.MaxStates = *clearDepth
+	} else {
+		chosenLimits.MaxStates = int(float64(*clearDepth) * typeScale)
+	}
 	if *symmetric == false || chosenType == "custom" {
 		chosenLimits.Symmetric = *symmetric
 	}
 	if *minCost != -1 {
 		chosenLimits.MinCost = *minCost
+	} else {
+		chosenLimits.MinCost = int(float64(chosenLimits.MinCost) * typeScale)
 	}
 	if *maxCost != -1 {
 		chosenLimits.MaxCost = *maxCost
+	} else {
+		chosenLimits.MaxCost = int(float64(chosenLimits.MaxCost) * typeScale)
 	}
 	if *maxPlacements != -1 {
 		chosenLimits.MaxPlacements = *maxPlacements
+	} else {
+		chosenLimits.MaxPlacements = int(float64(chosenLimits.MaxPlacements) * typeScale)
 	}
 	if *maxLogs != -1 {
 		chosenLimits.MaxLogs = *maxLogs
+	} else {
+		chosenLimits.MaxLogs = int(float64(chosenLimits.MaxLogs) * typeScale)
 	}
 	if *maxBatches != -1 {
 		chosenLimits.MaxBatches = *maxBatches
+	} else {
+		chosenLimits.MaxBatches = int(float64(chosenLimits.MaxBatches) * typeScale)
 	}
 
 	var pdf *gofpdf.Fpdf = nil
@@ -180,6 +195,7 @@ func handlePDFOutput(puzzleIndex int, puzzle *sudogo.Puzzle, solution *sudogo.Pu
 	boxWidth := float64(boxSize.Width)
 	fontScale := cellSize / 21.1
 	thickLineWidth := 1.0 * fontScale
+	lineWidth := pdf.GetLineWidth()
 
 	for y := 0.0; y < size; y++ {
 		for x := 0.0; x < size; x++ {
@@ -224,4 +240,6 @@ func handlePDFOutput(puzzleIndex int, puzzle *sudogo.Puzzle, solution *sudogo.Pu
 		pdf.SetXY(boardX, boardY+boardSize+thickLineWidth*5)
 		pdf.WriteAligned(boardSize, 12*fontScale, solutionString, "C")
 	}
+
+	pdf.SetLineWidth(lineWidth)
 }
