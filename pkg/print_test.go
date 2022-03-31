@@ -17,7 +17,7 @@ func TestPrint(t *testing.T) {
 		{0, 9, 0, 0, 0, 6, 7, 0, 0},
 	})
 
-	println(original.ToString())
+	println(original.ToConsoleString())
 }
 
 func TestPrintCandidates(t *testing.T) {
@@ -33,5 +33,5 @@ func TestPrintCandidates(t *testing.T) {
 		{0, 9, 0, 0, 0, 6, 7, 0, 0},
 	})
 
-	println(original.ToCandidatesString())
+	println(original.ToConsoleCandidatesString())
 }

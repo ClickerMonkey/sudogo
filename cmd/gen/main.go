@@ -148,15 +148,15 @@ func handleConsoleOutput(puzzleIndex int, puzzle *sudogo.Puzzle, solution *sudog
 
 	fmt.Printf("Puzzle #%d:\n", puzzleIndex+1)
 	if candidates {
-		puzzle.PrintCandidates()
+		puzzle.PrintConsoleCandidates()
 	} else {
-		puzzle.Print()
+		puzzle.PrintConsole()
 	}
 	fmt.Println()
 
 	if solution != nil {
 		fmt.Printf("Solution for puzzle #%d:\n", puzzleIndex+1)
-		solution.Print()
+		solution.PrintConsole()
 		fmt.Println()
 	}
 
@@ -234,7 +234,7 @@ func handlePDFOutput(puzzleIndex int, puzzle *sudogo.Puzzle, solution *sudogo.Pu
 	}
 
 	if solution != nil {
-		solutionString := solution.UniqueId()
+		solutionString := solution.String()
 		pdf.SetFont("Arial", "B", 10*fontScale)
 		pdf.SetTextColor(80, 80, 255)
 		pdf.SetXY(boardX, boardY+boardSize+thickLineWidth*5)

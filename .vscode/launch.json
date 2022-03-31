@@ -16,6 +16,27 @@
       ]
     },
     {
+      "name": "Launch test",
+      "type": "go",
+      "request": "launch",
+      "mode": "test",
+      "program": "${workspaceFolder}/pkg",
+      "args": []
+    },
+    {
+      "name": "Launch generate",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/cmd/gen",
+      "args": [
+        "-boxWidth=3",
+        "-boxHeight=2",
+        "-type=custom",
+        "-maxPlacements=18"
+      ]
+    },
+    {
       "name": "Launch Package",
       "type": "go",
       "request": "launch",

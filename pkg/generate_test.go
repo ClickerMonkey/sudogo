@@ -15,7 +15,7 @@ func TestGenerate(t *testing.T) {
 	if p == nil {
 		t.Fatalf("Failed to generate a puzzle")
 	} else {
-		p.Print()
+		p.PrintConsole()
 	}
 
 	duration := time.Since(start)
@@ -105,7 +105,7 @@ func TestGenerateClear(t *testing.T) {
 		if cleared == nil || !cleared.HasUniqueSolution() {
 			t.Errorf("Failed to generate unique %s puzzle after %d states in %s", test.name, states, duration)
 		} else {
-			cleared.Print()
+			cleared.PrintConsole()
 			fmt.Printf("Generated %s (%d empty cells) in %s after %d states\n", test.name, test.clear.MaxPlacements, duration, states)
 		}
 	}

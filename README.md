@@ -30,11 +30,11 @@ func main() {
   })
 
   // Print to stdout
-  puzzle.Print()
+  puzzle.PrintConsole()
   // puzzle.ToString()
 
   // Print to stdout showing candidates in each cell
-  puzzle.PrintCandidates()
+  puzzle.PrintConsoleCandidates()
   // puzzle.ToCandidatesString()
 
   // Solve

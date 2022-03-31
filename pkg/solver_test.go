@@ -23,7 +23,7 @@ func TestSolveSimple(t *testing.T) {
 	solution, solved := s.Solve(SolverLimit{})
 
 	if !solved {
-		solution.PrintCandidates()
+		solution.PrintConsoleCandidates()
 		t.Errorf("Failed to solve TestSolveSimple")
 	}
 
@@ -51,7 +51,7 @@ func TestSolveHiddenSingle(t *testing.T) {
 	}
 
 	if !solved {
-		solution.PrintCandidates()
+		solution.PrintConsoleCandidates()
 		t.Fatal("The puzzle could no longer be solved.")
 	}
 
@@ -91,7 +91,7 @@ func TestPointing(t *testing.T) {
 	}
 
 	if !solved {
-		solution.PrintCandidates()
+		solution.PrintConsoleCandidates()
 		t.Fatal("Puzzle not solved")
 	}
 
@@ -131,7 +131,7 @@ func TestClaiming(t *testing.T) {
 	}
 
 	if !solved {
-		solution.PrintCandidates()
+		solution.PrintConsoleCandidates()
 		t.Fatal("Puzzle not solved")
 	}
 
@@ -324,7 +324,7 @@ func TestHiddenPair(t *testing.T) {
 			actual := fmt.Sprint(testCell.Candidates())
 
 			if actual != cellTest.before {
-				puzzle.PrintCandidates()
+				puzzle.PrintConsoleCandidates()
 				t.Fatalf("Candidates for [%d,%d] are not %s they are %s", cellTest.column, cellTest.row, cellTest.before, actual)
 			}
 		}
@@ -336,7 +336,7 @@ func TestHiddenPair(t *testing.T) {
 			actual := fmt.Sprint(testCell.Candidates())
 
 			if actual != cellTest.after {
-				puzzle.PrintCandidates()
+				puzzle.PrintConsoleCandidates()
 				t.Fatalf("Candidates for [%d,%d] are not %s they are %s. %d candidates removed.", cellTest.column, cellTest.row, cellTest.after, actual, removed)
 			}
 		}
@@ -390,7 +390,7 @@ func TestSolveHard(t *testing.T) {
 		duration := time.Since(start)
 
 		if len(solutions) != test.solutions {
-			t.Errorf("An invalid number of solutions found %d expected %d in %s for %s.", len(solutions), test.solutions, duration, test.puzzle.UniqueId())
+			t.Errorf("An invalid number of solutions found %d expected %d in %s for %s.", len(solutions), test.solutions, duration, test.puzzle.String())
 		}
 
 		fmt.Printf("Solutions: %d in %s\n", len(solutions), duration)
@@ -403,7 +403,7 @@ func TestSolveHard(t *testing.T) {
 
 func checkValid(puzzle *Puzzle, t *testing.T) {
 	if !puzzle.IsValid() {
-		puzzle.PrintCandidates()
+		puzzle.PrintConsoleCandidates()
 		t.Fatal("The previous puzzle has invalid candidates")
 	}
 }

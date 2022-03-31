@@ -34,6 +34,15 @@ type Kind struct {
 	Constraints []Constraint
 }
 
+func NewKind(boxWidth int, boxHeight int) *Kind {
+	return &Kind{
+		BoxSize: Size{
+			Width:  boxWidth,
+			Height: boxHeight,
+		},
+	}
+}
+
 // The width, height, and number of digits in this puzzle kind.
 func (kind *Kind) Size() int {
 	return kind.BoxSize.Width * kind.BoxSize.Height

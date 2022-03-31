@@ -14,15 +14,15 @@ func toString(write func(out io.Writer)) string {
 	return out.String()
 }
 
-func (puzzle *Puzzle) Print() {
-	print(puzzle.ToString())
+func (puzzle *Puzzle) PrintConsole() {
+	print(puzzle.ToConsoleString())
 }
 
-func (puzzle *Puzzle) ToString() string {
-	return toString(puzzle.Write)
+func (puzzle *Puzzle) ToConsoleString() string {
+	return toString(puzzle.WriteConsole)
 }
 
-func (puzzle *Puzzle) Write(out io.Writer) {
+func (puzzle *Puzzle) WriteConsole(out io.Writer) {
 	boxsWide, boxsHigh, boxWidth, boxHeight, _ := puzzle.Kind.GetDimensions()
 	digitSize := puzzle.Kind.DigitsSize()
 	digitFormat := "%" + strconv.Itoa(digitSize) + "d"
@@ -57,7 +57,7 @@ func (puzzle *Puzzle) Write(out io.Writer) {
 			for cell := 0; cell < boxWidth; cell++ {
 				endOfCell := cell == boxWidth-1
 
-				io.WriteString(out, getHorizontal(box*boxsWide+cell))
+				io.WriteString(out, getHorizontal(box*boxWidth+cell))
 
 				if endOfBox && endOfCell {
 					io.WriteString(out, right)
@@ -95,7 +95,7 @@ func (puzzle *Puzzle) Write(out io.Writer) {
 		for cell := 0; cell < boxHeight; cell++ {
 			endOfCell := cell == boxHeight-1
 
-			appendRow(puzzle.GetRow(box*boxsHigh + cell))
+			appendRow(puzzle.GetRow(box*boxHeight + cell))
 
 			if endOfBox && endOfCell {
 				appendTextLine(thickBL, thickBThin, thickB, thickBR, thickH)
@@ -108,11 +108,11 @@ func (puzzle *Puzzle) Write(out io.Writer) {
 	}
 }
 
-func (instance *Puzzle) PrintCells() {
-	print(instance.ToCellsString())
+func (instance *Puzzle) PrintConsoleCells() {
+	print(instance.ToConsoleCellsString())
 }
 
-func (cell *Cell) ToString() string {
+func (cell *Cell) ToConsoleString() string {
 	cellValue := "_"
 	if cell.HasValue() {
 		cellValue = strconv.Itoa(cell.Value)
@@ -121,24 +121,24 @@ func (cell *Cell) ToString() string {
 	return fmt.Sprintf("{%d,%d} = %s %s", cell.Col, cell.Row, cellValue, fmt.Sprint(cell.Candidates()))
 }
 
-func (instance *Puzzle) ToCellsString() string {
+func (instance *Puzzle) ToConsoleCellsString() string {
 	s := ""
 
 	for i := range instance.Cells {
-		s += instance.Cells[i].ToString() + "\n"
+		s += instance.Cells[i].ToConsoleString() + "\n"
 	}
 
 	return s
 }
-func (puzzle *Puzzle) PrintCandidates() {
-	print(puzzle.ToCandidatesString())
+func (puzzle *Puzzle) PrintConsoleCandidates() {
+	print(puzzle.ToConsoleCandidatesString())
 }
 
-func (puzzle *Puzzle) ToCandidatesString() string {
-	return toString(puzzle.WriteCandidates)
+func (puzzle *Puzzle) ToConsoleCandidatesString() string {
+	return toString(puzzle.WriteConsoleCandidates)
 }
 
-func (puzzle *Puzzle) WriteCandidates(out io.Writer) {
+func (puzzle *Puzzle) WriteConsoleCandidates(out io.Writer) {
 	boxsWide, boxsHigh, boxWidth, boxHeight, _ := puzzle.Kind.GetDimensions()
 	digitSize := puzzle.Kind.DigitsSize()
 	digitFormat := "%" + strconv.Itoa(digitSize) + "d"
@@ -174,7 +174,7 @@ func (puzzle *Puzzle) WriteCandidates(out io.Writer) {
 			for cell := 0; cell < boxWidth; cell++ {
 				endOfCell := cell == boxWidth-1
 
-				writeHorizontal(box*boxsWide + cell)
+				writeHorizontal(box*boxWidth + cell)
 
 				if endOfBox && endOfCell {
 					io.WriteString(out, right)
@@ -204,7 +204,7 @@ func (puzzle *Puzzle) WriteCandidates(out io.Writer) {
 				cell := row[column]
 				if cell.Empty() {
 					for cellCol := 0; cellCol < boxWidth; cellCol++ {
-						candidate := cellRow*boxHeight + cellCol + 1
+						candidate := cellRow*boxWidth + cellCol + 1
 						if cell.candidates.Has(candidate) {
 							io.WriteString(out, fmt.Sprintf(digitFormat, candidate))
 						} else {
@@ -232,7 +232,7 @@ func (puzzle *Puzzle) WriteCandidates(out io.Writer) {
 		for cell := 0; cell < boxHeight; cell++ {
 			endOfCell := cell == boxHeight-1
 
-			appendRow(puzzle.GetRowCells(box*boxsHigh + cell))
+			appendRow(puzzle.GetRowCells(box*boxHeight + cell))
 
 			if endOfBox && endOfCell {
 				appendTextLine(thickBL, thickBThin, thickB, thickBR, thickH)

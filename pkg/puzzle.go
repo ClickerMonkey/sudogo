@@ -1,7 +1,11 @@
 package sudogo
 
 import (
+	"encoding/base64"
 	"fmt"
+	"math"
+	"math/big"
+	"strconv"
 	"strings"
 )
 
@@ -11,7 +15,7 @@ type Puzzle struct {
 }
 
 func New(kind *Kind) Puzzle {
-	boxsWide, boxsHigh, _, boxHeight, size := kind.GetDimensions()
+	boxsWide, _, boxWidth, boxHeight, size := kind.GetDimensions()
 	cellCount := size * size
 	cells := make([]Cell, cellCount)
 
@@ -21,7 +25,7 @@ func New(kind *Kind) Puzzle {
 		cell.Value = 0
 		cell.Row = i / size
 		cell.Col = i % size
-		cell.Box = ((cell.Row / boxsHigh) * boxHeight) + (cell.Col / boxsWide)
+		cell.Box = ((cell.Row / boxHeight) * boxsWide) + (cell.Col / boxWidth)
 		cell.candidates.Fill(size)
 	}
 
@@ -282,15 +286,115 @@ func (puzzle *Puzzle) IsValid() bool {
 	return true
 }
 
+func (puzzle *Puzzle) String() string {
+	return puzzle.ToStateString(false, ".")
+}
+
+func (puzzle *Puzzle) ToStateString(includeKind bool, emptyValue string) string {
+	sb := strings.Builder{}
+	if includeKind {
+		sb.WriteString(strconv.Itoa(puzzle.Kind.BoxSize.Width))
+		sb.WriteString("x")
+		sb.WriteString(strconv.Itoa(puzzle.Kind.BoxSize.Height))
+		sb.WriteString(",")
+	}
+	digitSize := puzzle.Kind.DigitsSize()
+	digitFormat := fmt.Sprintf("%%0%dd", digitSize)
+	emptyCell := strings.Repeat(emptyValue, digitSize)
+	for k := range puzzle.Cells {
+		other := &puzzle.Cells[k]
+		if other.Empty() {
+			sb.WriteString(emptyCell)
+		} else {
+			sb.WriteString(fmt.Sprintf(digitFormat, other.Value))
+		}
+	}
+	return sb.String()
+}
+
+func FromString(input string) *Puzzle {
+	hasKind := strings.Index(input, ",") != -1
+	cells := input
+	boxWidth := 3
+	boxHeight := 3
+	if hasKind {
+		parts := strings.Split(input, ",")
+		size := strings.Split(parts[0], "x")
+		var err error
+		if boxWidth, err = strconv.Atoi(size[0]); err != nil {
+			return nil
+		}
+		if boxHeight, err = strconv.Atoi(size[1]); err != nil {
+			return nil
+		}
+		cells = parts[1]
+	}
+	n := len(cells)
+	if n != boxWidth*boxWidth*boxHeight*boxHeight {
+		size := math.Round(math.Sqrt(float64(n)))
+		boxSize := int(math.Ceil(math.Sqrt(size)))
+		boxWidth = boxSize
+		boxHeight = int(size) / boxSize
+	}
+	kind := NewKind(boxWidth, boxHeight)
+	puzzle := New(kind)
+	digits := stringChunk(cells, kind.DigitsSize())
+	for i := range puzzle.Cells {
+		if i < len(digits) {
+			if cellValue, err := strconv.Atoi(digits[i]); err == nil && cellValue > 0 {
+				puzzle.SetCell(&puzzle.Cells[i], cellValue)
+			}
+		}
+	}
+	return &puzzle
+}
+
+func (puzzle *Puzzle) EncodedString() string {
+	i := big.NewInt(0)
+	scale := big.NewInt(int64(puzzle.Kind.Digits() + 1))
+	boxSizeScale := big.NewInt(32)
+	for k := range puzzle.Cells {
+		cell := &puzzle.Cells[k]
+		i.Mul(i, scale)
+		i.Add(i, big.NewInt(int64(cell.Value)))
+	}
+	i.Mul(i, boxSizeScale)
+	i.Add(i, big.NewInt(int64(puzzle.Kind.BoxSize.Height)))
+	i.Mul(i, boxSizeScale)
+	i.Add(i, big.NewInt(int64(puzzle.Kind.BoxSize.Width)))
+	return base64.StdEncoding.EncodeToString(i.Bytes())
+}
+
+func FromEncoded(input string) *Puzzle {
+	bytes, err := base64.StdEncoding.DecodeString(input)
+	if err != nil {
+		return nil
+	}
+	i := big.NewInt(0).SetBytes(bytes)
+	boxSizeScale := big.NewInt(32)
+	boxWidth := int(big.NewInt(0).Mod(i, boxSizeScale).Int64())
+	i.Div(i, boxSizeScale)
+	boxHeight := int(big.NewInt(0).Mod(i, boxSizeScale).Int64())
+	i.Div(i, boxSizeScale)
+	kind := NewKind(boxWidth, boxHeight)
+	scale := big.NewInt(int64(kind.Digits() + 1))
+	puzzle := New(kind)
+	cellCount := len(puzzle.Cells) - 1
+	for k := range puzzle.Cells {
+		cellValue := int(big.NewInt(0).Mod(i, scale).Int64())
+		if cellValue > 0 {
+			puzzle.SetCell(&puzzle.Cells[cellCount-k], cellValue)
+		}
+		i.Div(i, scale)
+	}
+	return &puzzle
+}
+
 func (puzzle *Puzzle) UniqueId() string {
 	sb := strings.Builder{}
 	for k := range puzzle.Cells {
 		other := &puzzle.Cells[k]
-		if other.Empty() {
-			sb.WriteString(".")
-		} else {
-			sb.WriteString(fmt.Sprint(other.Value))
-		}
+		sb.WriteString(strconv.Itoa(other.Value))
 	}
 	return sb.String()
 }

@@ -1,13 +1,14 @@
 package sudogo
 
-import ( 
-	"golang.org/x/exp/constraints"
+import (
 	"math/rand"
+
+	"golang.org/x/exp/constraints"
 )
 
 func removeAtIndex[T any](slice []T, index int) []T {
 	last := len(slice) - 1
-	if (index >= 0 && index <= last) {
+	if index >= 0 && index <= last {
 		slice[index] = slice[last]
 		slice = slice[:last]
 	}
@@ -66,7 +67,7 @@ func sliceClone[T any](source []T) []T {
 }
 
 func sliceLast[T any](source []T) *T {
-	last := len(source)-1
+	last := len(source) - 1
 	if last == -1 {
 		return nil
 	}
@@ -74,7 +75,7 @@ func sliceLast[T any](source []T) *T {
 }
 
 func sliceRemoveLast[T any](source []T) []T {
-	last := len(source)-1
+	last := len(source) - 1
 	if last == -1 {
 		return source
 	}
@@ -86,4 +87,23 @@ func max[T constraints.Ordered](x T, y T) T {
 		return x
 	}
 	return y
- }
+}
+
+func stringChunk(s string, chunkSize int) []string {
+	var chunks []string
+	runes := []rune(s)
+	n := len(runes)
+
+	if n == 0 {
+		return []string{s}
+	}
+
+	for i := 0; i < n; i += chunkSize {
+		nn := i + chunkSize
+		if nn > n {
+			nn = n
+		}
+		chunks = append(chunks, string(runes[i:nn]))
+	}
+	return chunks
+}
