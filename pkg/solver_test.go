@@ -72,7 +72,7 @@ func TestPointing(t *testing.T) {
 	})
 
 	s := original.Solver()
-	p := &s.puzzle
+	p := &s.Puzzle
 
 	if fmt.Sprint(p.Get(6, 2).Candidates()) != "[3 5]" {
 		t.Errorf("Invalid candidates for r3c7 in Pointing")
@@ -112,7 +112,7 @@ func TestClaiming(t *testing.T) {
 	})
 
 	s := original.Solver()
-	p := &s.puzzle
+	p := &s.Puzzle
 
 	if fmt.Sprint(p.Get(1, 2).Candidates()) != "[4 7]" {
 		t.Errorf("Invalid candidates for r3c2 in Claiming")
@@ -152,7 +152,7 @@ func TestNakedPair(t *testing.T) {
 	})
 
 	s := original.Solver()
-	p := &s.puzzle
+	p := &s.Puzzle
 
 	r8c2 := p.Get(1, 7)
 
@@ -317,7 +317,7 @@ func TestHiddenPair(t *testing.T) {
 
 	for _, test := range tests {
 		solver := test.puzzle.Solver()
-		puzzle := &solver.puzzle
+		puzzle := &solver.Puzzle
 
 		for _, cellTest := range test.tests {
 			testCell := puzzle.Get(cellTest.column, cellTest.row)
@@ -386,7 +386,7 @@ func TestSolveHard(t *testing.T) {
 
 	for _, test := range tests {
 		start := time.Now()
-		solutions := test.puzzle.GetSolutions(SolutionLimit{maxSolutions: test.max})
+		solutions := test.puzzle.GetSolutions(SolutionLimit{MaxSolutions: test.max})
 		duration := time.Since(start)
 
 		if len(solutions) != test.solutions {
@@ -396,7 +396,7 @@ func TestSolveHard(t *testing.T) {
 		fmt.Printf("Solutions: %d in %s\n", len(solutions), duration)
 
 		for _, solution := range solutions {
-			checkValid(&solution.puzzle, t)
+			checkValid(&solution.Puzzle, t)
 		}
 	}
 }
@@ -430,7 +430,7 @@ func TestLogs(t *testing.T) {
 }
 
 func printSolveLogs(solver *Solver) {
-	for _, log := range solver.logs {
+	for _, log := range solver.Logs {
 		fmt.Println(log.String())
 	}
 	last := solver.GetLastLog()

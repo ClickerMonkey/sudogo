@@ -114,7 +114,7 @@ func (gen *Generator) ClearCells(puzzle *Puzzle, limits ClearLimits) (*Puzzle, i
 
 		nextSolutions := next.GetSolutions(SolutionLimit{
 			SolverLimit:  limits.SolverLimit,
-			maxSolutions: 2,
+			MaxSolutions: 2,
 		})
 
 		if len(nextSolutions) == 1 {

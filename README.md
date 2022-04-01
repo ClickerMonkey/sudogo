@@ -84,7 +84,6 @@ Notable functions for the main types
 - Set(col, row, value) bool
 - Solved() bool
 - Solve(limits) (\*Puzzle, bool)
-- GetLogs() []SolveLog
 
 ### Generator
 - Attempt() \*Puzzle

@@ -77,7 +77,32 @@ func (cell *Cell) Candidates() []int {
 	return cell.candidates.ToSlice()
 }
 
-// Returns the small candidate available in this cell. If none exist then 64 is returned.
+// Returns the smallest candidate available in this cell. If none exist then 64 is returned.
 func (cell *Cell) FirstCandidate() int {
 	return cell.candidates.First()
+}
+
+// Returns the largest candidate available in this cell. If none exist then 0 is returned.
+func (cell *Cell) LastCandidate() int {
+	return cell.candidates.Last()
+}
+
+// The minimum value this cell can possibly be, taking into account it might
+// already have a value and therefore no candidates.
+func (cell *Cell) MinValue() int {
+	if cell.HasValue() {
+		return cell.Value
+	} else {
+		return cell.FirstCandidate()
+	}
+}
+
+// The maximum value this cell can possibly be, taking into account it might
+// already have a value and therefore no candidates.
+func (cell *Cell) MaxValue() int {
+	if cell.HasValue() {
+		return cell.Value
+	} else {
+		return cell.LastCandidate()
+	}
 }

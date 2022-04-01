@@ -60,6 +60,15 @@ func pointersWhere[T any](source []T, where func(item *T) bool) []*T {
 	return pointers
 }
 
+func sliceIndex[T any](source []T, where func(item T) bool) int {
+	for i, item := range source {
+		if where(item) {
+			return i
+		}
+	}
+	return -1
+}
+
 func sliceClone[T any](source []T) []T {
 	cloned := make([]T, len(source))
 	copy(cloned, source)
@@ -82,11 +91,25 @@ func sliceRemoveLast[T any](source []T) []T {
 	return source[:last]
 }
 
-func max[T constraints.Ordered](x T, y T) T {
+func Max[T constraints.Ordered](x T, y T) T {
 	if x > y {
 		return x
 	}
 	return y
+}
+
+func Min[T constraints.Ordered](x T, y T) T {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func AbsInt(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 func stringChunk(s string, chunkSize int) []string {

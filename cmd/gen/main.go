@@ -166,7 +166,7 @@ func handleConsoleOutput(puzzleIndex int, puzzle *sudogo.Puzzle, solution *sudog
 		_, solved := solver.Solve(sudogo.SolverLimit{})
 		if solved {
 			fmt.Printf("Steps for puzzle #%d:\n", puzzleIndex+1)
-			for _, log := range solver.GetLogs() {
+			for _, log := range solver.Logs {
 				fmt.Println(log.String())
 			}
 			fmt.Println()

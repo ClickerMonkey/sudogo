@@ -96,6 +96,3 @@ func (kind *Kind) Create(values [][]int) Puzzle {
 func (kind *Kind) Generator() Generator {
 	return NewGenerator(kind)
 }
-
-// TODO: A special constraint on this puzzle that the solver needs to consider.
-type Constraint func(puzzle *Puzzle) bool

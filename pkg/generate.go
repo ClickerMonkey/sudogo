@@ -22,7 +22,7 @@ func NewSeededGenerator(kind *Kind, seed int64) Generator {
 
 func generatorSolver(kind *Kind) Solver {
 	solver := NewSolver(kind.Empty())
-	solver.steps = GenerateSolveSteps
+	solver.Steps = GenerateSolveSteps
 	return solver
 }
 
@@ -35,7 +35,7 @@ func (gen *Generator) Reset() {
 }
 
 func (gen *Generator) Puzzle() *Puzzle {
-	return &gen.solver.puzzle
+	return &gen.solver.Puzzle
 }
 
 func (gen *Generator) Solver() *Solver {
@@ -47,16 +47,16 @@ func (gen *Generator) IsComplete() bool {
 }
 
 func (gen *Generator) GetUnsolved() *CellGroups {
-	return pointerAt(gen.solver.unsolved, 0)
+	return pointerAt(gen.solver.Unsolved, 0)
 }
 
 func (gen *Generator) GetRandomUnsolved() *CellGroups {
-	return randomPointer(gen.Random, gen.solver.unsolved)
+	return randomPointer(gen.Random, gen.solver.Unsolved)
 }
 
 func (gen *Generator) GetRandom(match func(other *Cell) bool) *CellGroups {
 	matches := 0
-	for _, group := range gen.solver.cells {
+	for _, group := range gen.solver.Cells {
 		if match(group.Cell) {
 			matches++
 		}
@@ -65,7 +65,7 @@ func (gen *Generator) GetRandom(match func(other *Cell) bool) *CellGroups {
 		return nil
 	}
 	chosen := gen.Random.Intn(matches)
-	for _, group := range gen.solver.cells {
+	for _, group := range gen.solver.Cells {
 		if match(group.Cell) {
 			chosen--
 			if chosen < 0 {
