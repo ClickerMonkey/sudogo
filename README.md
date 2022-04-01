@@ -165,13 +165,13 @@ Puzzle.PrintCandidates()
 
 - [X] More efficient cell clearing after generation
 - [x] Logging solve operations (type, score, text, cell before/after)
-- [ ] Sum Constraint (cells add up to a number)
+- [x] Sum Constraint (cells add up to a number)
   - Cells in path add up to another cell
   - Path adds up to constant
   - Knights move cells add up to number
-- [ ] Value Constraints (cells must contain certain values in any order)
+- [x] Value Constraints (cells must contain certain values in any order)
   - Diagonals contain 1-9
-- [ ] Match Constraints (cells in relative positions can't have same value)
+- [x] Match Constraints (cells in relative positions can't have same value)
   - Knights move cells can't be same number
   - Kings move cells can't be same number
 - [ ] Solve step: Skyscraper (http://hodoku.sourceforge.net/en/tech_sdp.php)
@@ -186,7 +186,7 @@ Puzzle.PrintCandidates()
 - [ ] Solve step: Franken Fish (http://hodoku.sourceforge.net/en/tech_fishc.php)
 - [ ] Solve step: Mutant Fish (http://hodoku.sourceforge.net/en/tech_fishc.php)
 - [ ] Solve step: Siamese Fish (http://hodoku.sourceforge.net/en/tech_fishc.php)
-- [ ] Solve step: Constraints
+- [x] Solve step: Constraints
 
 ### Resources
 - http://hodoku.sourceforge.net/en/techniques.php
