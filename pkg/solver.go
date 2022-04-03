@@ -86,6 +86,7 @@ var StandardSolveSteps = []*SolveStep{
 	StepRemoveClaimingCandidates,
 	StepConstraints,
 	StepRemoveSkyscraperCandidates,
+	StepRemove2StringKiteCandidates,
 	StepRemoveNakedSubsetCandidates2,
 	StepRemoveHiddenSubsetCandidates2,
 	StepRemoveNakedSubsetCandidates3,
@@ -890,6 +891,64 @@ func doSkyscraperRemoveGroup(solver *Solver, limits SolverLimit, step *SolveStep
 	size := solver.Puzzle.Kind.Size()
 	removed := 0
 
+	groups := getGroupCandidateDistributions(solver, groupIndex)
+
+	oppositeGroup := 1 - groupIndex
+	groupsLast := len(groups) - 1
+	for a := 0; a < groupsLast; a++ {
+		groupA := groups[a].candidates
+		for b := a + 1; b <= groupsLast; b++ {
+			groupB := groups[b].candidates
+			for candidate := 0; candidate < size; candidate++ {
+				if groupA[candidate].size == 2 && groupB[candidate].size == 2 {
+					a0 := groupA[candidate].cells[0]
+					a1 := groupA[candidate].cells[1]
+					b0 := groupB[candidate].cells[0]
+					b1 := groupB[candidate].cells[1]
+
+					if a0.GetGroup(oppositeGroup) == b0.GetGroup(oppositeGroup) {
+						removed += removeCandidateInGroups(solver, limits, step, candidate+1, a1, b1)
+					} else if a0.GetGroup(oppositeGroup) == b1.GetGroup(oppositeGroup) {
+						removed += removeCandidateInGroups(solver, limits, step, candidate+1, a1, b0)
+					} else if a1.GetGroup(oppositeGroup) == b0.GetGroup(oppositeGroup) {
+						removed += removeCandidateInGroups(solver, limits, step, candidate+1, a0, b1)
+					} else if a1.GetGroup(oppositeGroup) == b1.GetGroup(oppositeGroup) {
+						removed += removeCandidateInGroups(solver, limits, step, candidate+1, a0, b0)
+					}
+					if !solver.canContinueStep(limits, step) {
+						return removed
+					}
+				}
+			}
+		}
+	}
+
+	return removed
+}
+
+func removeCandidateInGroups(solver *Solver, limits SolverLimit, step *SolveStep, candidate int, a *Cell, b *Cell) int {
+	removed := 0
+
+	for _, group := range solver.Unsolved {
+		cell := group.Cell
+		if cell.HasCandidate(candidate) && cell.InGroup(a) && cell.InGroup(b) {
+			solver.logStep(step)
+			solver.logBefore(cell)
+			cell.RemoveCandidate(candidate)
+			removed++
+			solver.logAfter(cell)
+
+			if !solver.canContinueStep(limits, step) {
+				return removed
+			}
+		}
+	}
+
+	return removed
+}
+
+func getGroupCandidateDistributions(solver *Solver, groupIndex Group) []*candidateDistribution {
+	size := solver.Puzzle.Kind.Size()
 	groupsTested := Bitset{}
 	groups := []*candidateDistribution{}
 
@@ -906,53 +965,58 @@ func doSkyscraperRemoveGroup(solver *Solver, limits SolverLimit, step *SolveStep
 		}
 	}
 
-	oppositeGroup := 1 - groupIndex
-	groupsLast := len(groups) - 1
-	for a := 0; a < groupsLast; a++ {
-		groupA := groups[a].candidates
-		for b := a + 1; b <= groupsLast; b++ {
-			groupB := groups[b].candidates
-			for candidate := 0; candidate < size; candidate++ {
-				if groupA[candidate].size == 2 && groupB[candidate].size == 2 {
-					a0 := groupA[candidate].cells[0]
-					a1 := groupA[candidate].cells[1]
-					b0 := groupB[candidate].cells[0]
-					b1 := groupB[candidate].cells[1]
+	return groups
+}
 
-					if a0.GetGroup(oppositeGroup) == b0.GetGroup(oppositeGroup) {
-						removed += doSkyscraperRemove(solver, limits, step, candidate+1, a1, b1)
-					} else if a0.GetGroup(oppositeGroup) == b1.GetGroup(oppositeGroup) {
-						removed += doSkyscraperRemove(solver, limits, step, candidate+1, a1, b0)
-					} else if a1.GetGroup(oppositeGroup) == b0.GetGroup(oppositeGroup) {
-						removed += doSkyscraperRemove(solver, limits, step, candidate+1, a0, b1)
-					} else if a1.GetGroup(oppositeGroup) == b1.GetGroup(oppositeGroup) {
-						removed += doSkyscraperRemove(solver, limits, step, candidate+1, a0, b0)
+// ==================================================
+// Step: 2-String Kite Candidates
+//		http://hodoku.sourceforge.net/en/tech_sdp.php
+// ==================================================
+
+var StepRemove2StringKiteCandidates = &SolveStep{
+	Technique:      "2-String Kite",
+	FirstCost:      700,
+	SubsequentCost: 500,
+	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+		return 0, do2StringKite(solver, limits, step) > 0
+	},
+}
+
+// Concentrate again on one digit.
+// Find a row and a column that have only two candidates left (the "strings").
+// One candidate from the row and one candidate from the column have to be in the same block.
+// The candidate that sees the two other cells can be eliminated.
+func do2StringKite(solver *Solver, limits SolverLimit, step *SolveStep) int {
+	size := solver.Puzzle.Kind.Size()
+	removed := 0
+	rows := getGroupCandidateDistributions(solver, GroupRow)
+	cols := getGroupCandidateDistributions(solver, GroupCol)
+
+	for candidate := 0; candidate < size; candidate++ {
+		for _, row := range rows {
+			rowCands := row.candidates[candidate]
+			for _, col := range cols {
+				colCands := col.candidates[candidate]
+
+				if rowCands.size == 2 && colCands.size == 2 {
+					r0 := rowCands.cells[0]
+					r1 := rowCands.cells[1]
+					c0 := colCands.cells[0]
+					c1 := colCands.cells[1]
+
+					if r0.InGroup(c0) {
+						removed += removeCandidateInGroups(solver, limits, step, candidate+1, r1, c1)
+					} else if r0.InGroup(c1) {
+						removed += removeCandidateInGroups(solver, limits, step, candidate+1, r1, c0)
+					} else if r1.InGroup(c0) {
+						removed += removeCandidateInGroups(solver, limits, step, candidate+1, r0, c1)
+					} else if r1.InGroup(c1) {
+						removed += removeCandidateInGroups(solver, limits, step, candidate+1, r0, c0)
 					}
 					if !solver.canContinueStep(limits, step) {
 						return removed
 					}
 				}
-			}
-		}
-	}
-
-	return removed
-}
-
-func doSkyscraperRemove(solver *Solver, limits SolverLimit, step *SolveStep, candidate int, a *Cell, b *Cell) int {
-	removed := 0
-
-	for _, group := range solver.Unsolved {
-		cell := group.Cell
-		if cell.HasCandidate(candidate) && cell.InGroup(a) && cell.InGroup(b) {
-			solver.logStep(step)
-			solver.logBefore(cell)
-			cell.RemoveCandidate(candidate)
-			removed++
-			solver.logAfter(cell)
-
-			if !solver.canContinueStep(limits, step) {
-				return removed
 			}
 		}
 	}

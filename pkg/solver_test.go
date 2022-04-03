@@ -281,6 +281,98 @@ func TestSkyscraper(t *testing.T) {
 	}
 }
 
+func Test2StringKite(t *testing.T) {
+	type CandidateTest struct {
+		column int
+		row    int
+		before string
+		after  string
+	}
+
+	tests := []struct {
+		puzzle Puzzle
+		step   *SolveStep
+		max    int
+		tests  []CandidateTest
+	}{
+		{
+			puzzle: Classic.Create([][]int{
+				{0, 8, 1, 0, 2, 0, 6, 0, 0},
+				{0, 4, 2, 0, 6, 0, 0, 8, 9},
+				{0, 5, 6, 8, 0, 0, 2, 4, 0},
+				{6, 9, 3, 1, 4, 2, 7, 5, 8},
+				{4, 2, 8, 3, 5, 7, 9, 1, 6},
+				{1, 7, 5, 6, 8, 9, 3, 2, 4},
+				{5, 1, 0, 0, 3, 6, 8, 9, 2},
+				{2, 3, 0, 0, 0, 8, 4, 6, 0},
+				{8, 6, 0, 2, 0, 0, 0, 0, 0},
+			}),
+			step: StepRemove2StringKiteCandidates,
+			max:  1,
+			tests: []CandidateTest{
+				{
+					column: 3,
+					row:    1,
+					before: "[5 7]",
+					after:  "[7]",
+				},
+			},
+		},
+		{
+			puzzle: Classic.Create([][]int{
+				{3, 6, 1, 7, 0, 0, 2, 9, 5},
+				{8, 4, 2, 3, 9, 5, 6, 7, 1},
+				{0, 5, 0, 2, 6, 1, 4, 8, 3},
+				{1, 0, 8, 5, 2, 6, 0, 3, 4},
+				{6, 2, 5, 0, 0, 0, 0, 1, 8},
+				{0, 3, 4, 1, 0, 0, 5, 2, 6},
+				{4, 0, 0, 6, 1, 0, 8, 5, 2},
+				{5, 8, 0, 0, 0, 2, 1, 6, 7},
+				{2, 1, 6, 8, 5, 7, 3, 4, 9},
+			}),
+			step: StepRemove2StringKiteCandidates,
+			max:  1,
+			tests: []CandidateTest{
+				{
+					column: 5,
+					row:    6,
+					before: "[3 9]",
+					after:  "[3]",
+				},
+			},
+		},
+	}
+
+	for testIndex, test := range tests {
+		solver := test.puzzle.Solver()
+		puzzle := &solver.Puzzle
+
+		for _, cellTest := range test.tests {
+			testCell := puzzle.Get(cellTest.column, cellTest.row)
+			actual := fmt.Sprint(testCell.Candidates())
+
+			if actual != cellTest.before {
+				puzzle.PrintConsoleCandidates()
+				t.Fatalf("#%d: Candidates for [%d,%d] are not %s they are %s", testIndex, cellTest.column, cellTest.row, cellTest.before, actual)
+			}
+		}
+
+		removed, _ := test.step.Logic(&solver, SolverLimit{MaxBatches: test.max}, test.step)
+
+		for _, cellTest := range test.tests {
+			testCell := puzzle.Get(cellTest.column, cellTest.row)
+			actual := fmt.Sprint(testCell.Candidates())
+
+			if actual != cellTest.after {
+				puzzle.PrintConsoleCandidates()
+				t.Fatalf("#%d: Candidates for [%d,%d] are not %s they are %s. %d candidates removed.", testIndex, cellTest.column, cellTest.row, cellTest.after, actual, removed)
+			}
+		}
+
+		checkValid(puzzle, t)
+	}
+}
+
 func TestHiddenPair(t *testing.T) {
 	type CandidateTest struct {
 		column int

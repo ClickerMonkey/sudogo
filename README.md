@@ -174,8 +174,8 @@ Puzzle.PrintCandidates()
 - [x] Match Constraints (cells in relative positions can't have same value)
   - Knights move cells can't be same number
   - Kings move cells can't be same number
-- [ ] Solve step: Skyscraper (http://hodoku.sourceforge.net/en/tech_sdp.php)
-- [ ] Solve step: 2-String Kite/Dual 2-String Kite (http://hodoku.sourceforge.net/en/tech_sdp.php)
+- [x] Solve step: Skyscraper (http://hodoku.sourceforge.net/en/tech_sdp.php)
+- [x] Solve step: 2-String Kite/Dual 2-String Kite (http://hodoku.sourceforge.net/en/tech_sdp.php)
 - [ ] Solve step: Turbot Fish (http://hodoku.sourceforge.net/en/tech_sdp.php)
 - [ ] Solve step: Empty Rectangle (http://hodoku.sourceforge.net/en/tech_sdp.php)
 - [ ] Solve step: Dual Empty Rectangle (http://hodoku.sourceforge.net/en/tech_sdp.php)
