@@ -1023,3 +1023,71 @@ func do2StringKite(solver *Solver, limits SolverLimit, step *SolveStep) int {
 
 	return removed
 }
+
+// ==================================================
+// Step: 2-String Kite Candidates
+//		http://hodoku.sourceforge.net/en/tech_sdp.php
+// ==================================================
+
+var StepRemoveEmptyRectangleCandidates = &SolveStep{
+	Technique:      "Empty Rectangle",
+	FirstCost:      700,
+	SubsequentCost: 500,
+	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+		return 0, doEmptyRectangle(solver, limits, step) > 0
+	},
+}
+
+// Concentrate again on one digit.
+// Find a row and a column that have only two candidates left (the "strings").
+// One candidate from the row and one candidate from the column have to be in the same block.
+// The candidate that sees the two other cells can be eliminated.
+func doEmptyRectangle(solver *Solver, limits SolverLimit, step *SolveStep) int {
+	removed := 0
+
+	boxTested := Bitset{}
+
+	for _, group := range solver.Unsolved {
+		cell := group.Cell
+		if !boxTested.Has(cell.Box) {
+			boxTested.Set(cell.Box, true)
+			rects := getEmptyRectangles(append(group.Box[:], cell))
+			if rects.Count > 0 {
+
+			}
+		}
+	}
+
+	return removed
+}
+
+func getEmptyRectangles(box []*Cell) Candidates {
+	remaining := Candidates{}
+	minRow := box[0].Row
+	maxRow := box[0].Row
+	minCol := box[0].Col
+	maxCol := box[0].Col
+
+	for _, cell := range box {
+		remaining.Or(cell.candidates)
+		minRow = Min(minRow, cell.Row)
+		maxRow = Max(maxRow, cell.Row)
+		minCol = Min(minCol, cell.Col)
+		maxCol = Max(maxCol, cell.Col)
+	}
+
+	empty := Candidates{}
+
+	for remaining.Count > 0 {
+		next := remaining.First()
+		remaining.Set(next, false)
+
+		for row := minRow; row <= maxRow; row++ {
+			for col := minCol; col <= maxCol; col++ {
+
+			}
+		}
+	}
+
+	return empty
+}

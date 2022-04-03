@@ -176,7 +176,6 @@ Puzzle.PrintCandidates()
   - Kings move cells can't be same number
 - [x] Solve step: Skyscraper (http://hodoku.sourceforge.net/en/tech_sdp.php)
 - [x] Solve step: 2-String Kite/Dual 2-String Kite (http://hodoku.sourceforge.net/en/tech_sdp.php)
-- [ ] Solve step: Turbot Fish (http://hodoku.sourceforge.net/en/tech_sdp.php)
 - [ ] Solve step: Empty Rectangle (http://hodoku.sourceforge.net/en/tech_sdp.php)
 - [ ] Solve step: Dual Empty Rectangle (http://hodoku.sourceforge.net/en/tech_sdp.php)
 - [ ] Solve step: X-Wing (http://hodoku.sourceforge.net/en/tech_fishb.php)
