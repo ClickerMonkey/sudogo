@@ -18,6 +18,16 @@ func (group *CellGroups) Remove(neighbor *Cell) {
 	group.Col = removeValue(group.Col, neighbor)
 }
 
+func (group *CellGroups) GetGroup(groupIndex Group) []*Cell {
+	if groupIndex == GroupCol {
+		return group.Col
+	} else if groupIndex == GroupRow {
+		return group.Row
+	} else {
+		return group.Box
+	}
+}
+
 type Solver struct {
 	Puzzle   Puzzle
 	Steps    []*SolveStep
@@ -75,6 +85,7 @@ var StandardSolveSteps = []*SolveStep{
 	StepRemovePointingCandidates,
 	StepRemoveClaimingCandidates,
 	StepConstraints,
+	StepRemoveSkyscraperCandidates,
 	StepRemoveNakedSubsetCandidates2,
 	StepRemoveHiddenSubsetCandidates2,
 	StepRemoveNakedSubsetCandidates3,
@@ -466,76 +477,55 @@ func doRemovePointingCandidates(solver *Solver, limits SolverLimit, step *SolveS
 	removed := 0
 
 	for _, group := range solver.Unsolved {
-		cell := group.Cell
-		// all candidates in this box's row that are shared
-		row := cell.candidates
-		// all candidates in this box's column that are shared
-		col := cell.candidates
+		removed += doRemovePointingCandidatesGroup(solver, limits, step, group, GroupCol)
+		if !solver.canContinueStep(limits, step) {
+			break
+		}
+		removed += doRemovePointingCandidatesGroup(solver, limits, step, group, GroupRow)
+		if !solver.canContinueStep(limits, step) {
+			break
+		}
+	}
 
-		// remove candidates that are not shared
-		for _, other := range group.Box {
-			if other.Row == cell.Row {
-				row.And(other.candidates)
-			}
-			if other.Col == cell.Col {
-				col.And(other.candidates)
+	return removed
+}
+
+func doRemovePointingCandidatesGroup(solver *Solver, limits SolverLimit, step *SolveStep, group *CellGroups, groupIndex Group) int {
+	// all candidates in this box's group that are shared
+	cell := group.Cell
+	cand := cell.candidates
+	removed := 0
+
+	// remove candidates that are not shared
+	for _, other := range group.Box {
+		if other.GetGroup(groupIndex) == cell.GetGroup(groupIndex) {
+			cand.And(other.candidates)
+		}
+	}
+
+	// remove candidates that exist outside the row or column
+	for _, other := range group.Box {
+		if other.GetGroup(groupIndex) != cell.GetGroup(groupIndex) {
+			cand.Remove(other.candidates)
+		}
+	}
+
+	// what is remaining are candidates confined to the cells column in the box
+	if cand.Count > 0 {
+		hasOverlap := false
+		for _, other := range group.GetGroup(groupIndex) {
+			if other.Box != cell.Box && other.candidates.Overlaps(cand) {
+				hasOverlap = true
+				break
 			}
 		}
-
-		// remove candidates that exist outside the row or column
-		for _, other := range group.Box {
-			if other.Row != cell.Row {
-				row.Remove(other.candidates)
-			}
-			if other.Col != cell.Col {
-				col.Remove(other.candidates)
-			}
-		}
-
-		// what is remaining are candidates confined to the cells row in the box
-		if row.Count > 0 {
-			hasOverlap := false
-			for _, other := range group.Row {
-				if other.Box != cell.Box && other.candidates.Overlaps(row) {
-					hasOverlap = true
-					break
-				}
-			}
-			if hasOverlap {
-				solver.logStep(step)
-				for _, other := range group.Row {
-					if other.Box != cell.Box && other.candidates.Overlaps(row) {
-						solver.logBefore(other)
-						removed += other.candidates.Remove(row)
-						solver.logAfter(other)
-					}
-				}
-				if !solver.canContinueStep(limits, step) {
-					break
-				}
-			}
-		}
-
-		// what is remaining are candidates confined to the cells column in the box
-		if col.Count > 0 {
-			hasOverlap := false
-			for _, other := range group.Col {
-				if other.Box != cell.Box && other.candidates.Overlaps(row) {
-					hasOverlap = true
-					break
-				}
-			}
-			if hasOverlap {
-				solver.logStep(step)
-				for _, other := range group.Col {
-					if other.Box != cell.Box && other.candidates.Overlaps(row) {
-						solver.logBefore(other)
-						removed += other.candidates.Remove(col)
-						solver.logAfter(other)
-					}
-				}
-				if !solver.canContinueStep(limits, step) {
-					break
+		if hasOverlap {
+			solver.logStep(step)
+			for _, other := range group.GetGroup(groupIndex) {
+				if other.Box != cell.Box && other.candidates.Overlaps(cand) {
+					solver.logBefore(other)
+					removed += other.candidates.Remove(cand)
+					solver.logAfter(other)
 				}
 			}
 		}
@@ -548,7 +538,6 @@ func doRemovePointingCandidates(solver *Solver, limits SolverLimit, step *SolveS
 // Step: Remove Pointing Candidates
 //		http://hodoku.sourceforge.net/en/tech_intersections.php
 // ==================================================
-
 var StepRemoveClaimingCandidates = &SolveStep{
 	Technique:      "Claiming Candidates",
 	FirstCost:      350,
@@ -565,52 +554,36 @@ var StepRemoveClaimingCandidates = &SolveStep{
 // If in a row or column a candidate only appears in a single box then that candidate can be removed from other cells in that box
 func doRemoveClaimingCandidates(solver *Solver, limits SolverLimit, step *SolveStep) int {
 	removed := 0
+	removed += doRemoveClaimingCandidatesGroups(solver, limits, step, GroupCol)
+	if solver.canContinueStep(limits, step) {
+		removed += doRemoveClaimingCandidatesGroups(solver, limits, step, GroupRow)
+	}
+	return removed
+}
+
+func doRemoveClaimingCandidatesGroups(solver *Solver, limits SolverLimit, step *SolveStep, groupIndex Group) int {
+	removed := 0
 
 	for _, group := range solver.Unsolved {
 		cell := group.Cell
 
-		// all candidates in this row that are not shared outside of the box
-		row := cell.candidates
+		// all candidates in this cand that are not shared outside of the box
+		cand := cell.candidates
 
 		// remove candidates from row that exist in the cells row outside the box
-		for _, other := range group.Row {
+		for _, other := range group.GetGroup(groupIndex) {
 			if other.Box != cell.Box {
-				row.Remove(other.candidates)
+				cand.Remove(other.candidates)
 			}
 		}
 
 		// what is remaining are the candidates unique to the row outside this box
-		if row.Count > 0 {
+		if cand.Count > 0 {
 			solver.logStep(step)
 			for _, other := range group.Box {
-				if other.Row != cell.Row && other.candidates.Overlaps(row) {
+				if other.GetGroup(groupIndex) != cell.GetGroup(groupIndex) && other.candidates.Overlaps(cand) {
 					solver.logBefore(other)
-					removed += other.candidates.Remove(row)
-					solver.logAfter(other)
-				}
-			}
-			if !solver.canContinueStep(limits, step) {
-				break
-			}
-		}
-
-		// all candidates in this column that are not shared outside of the box
-		col := cell.candidates
-
-		// remove candidates from column that exist in the cells column outside the box
-		for _, other := range group.Col {
-			if other.Box != cell.Box {
-				col.Remove(other.candidates)
-			}
-		}
-
-		// what is remaining are the candidates unique to the column outside this box
-		if col.Count > 0 {
-			solver.logStep(step)
-			for _, other := range group.Box {
-				if other.Col != cell.Col && other.candidates.Overlaps(col) {
-					solver.logBefore(other)
-					removed += other.candidates.Remove(col)
+					removed += other.candidates.Remove(cand)
 					solver.logAfter(other)
 				}
 			}
@@ -758,17 +731,29 @@ func newDistribution(size int) candidateDistribution {
 	return candidateDistribution{candidates}
 }
 
-func (dist *candidateDistribution) set(cells []*Cell) {
+func (dist *candidateDistribution) clear() {
 	for i := range dist.candidates {
 		dist.candidates[i].size = 0
 	}
+}
+
+func (dist *candidateDistribution) reset(cells []*Cell) {
+	dist.clear()
+	dist.addCells(cells)
+}
+
+func (dist *candidateDistribution) addCells(cells []*Cell) {
 	for _, cell := range cells {
-		for i := range dist.candidates {
-			list := &dist.candidates[i]
-			if cell.candidates.Has(list.candidate) {
-				list.cells[list.size] = cell
-				list.size++
-			}
+		dist.addCell(cell)
+	}
+}
+
+func (dist *candidateDistribution) addCell(cell *Cell) {
+	for i := range dist.candidates {
+		list := &dist.candidates[i]
+		if cell.candidates.Has(list.candidate) {
+			list.cells[list.size] = cell
+			list.size++
 		}
 	}
 }
@@ -799,43 +784,26 @@ var StepRemoveHiddenSubsetCandidates4 = CreateStepRemoveHiddenSubsetCandidates(4
 // Find hidden subsets and remove them as possible values for shared groups
 func doRemoveHiddenSubsetCandidates(solver *Solver, subsetSize int, limits SolverLimit, step *SolveStep) int {
 	dist := newDistribution(solver.Puzzle.Kind.Size())
-	rowsTested := Bitset{}
-	colsTested := Bitset{}
-	boxsTested := Bitset{}
+	tested := [3]Bitset{}
 	removed := 0
 
 	for _, group := range solver.Unsolved {
 		cell := group.Cell
 
-		// Only test a row/column/box of an unsolved cell once
-		if !rowsTested.Has(cell.Row) {
-			rowsTested.Set(cell.Row, true)
-			fullRow := group.Row[:]
-			fullRow = append(fullRow, cell)
-			dist.set(fullRow)
-			removed += doRemoveHiddenSubset(&dist, subsetSize, solver, limits, step)
-			if !solver.canContinueStep(limits, step) {
-				break
-			}
-		}
-		if !colsTested.Has(cell.Col) {
-			colsTested.Set(cell.Col, true)
-			fullCol := group.Col[:]
-			fullCol = append(fullCol, cell)
-			dist.set(fullCol)
-			removed += doRemoveHiddenSubset(&dist, subsetSize, solver, limits, step)
-			if !solver.canContinueStep(limits, step) {
-				break
-			}
-		}
-		if !boxsTested.Has(cell.Box) {
-			boxsTested.Set(cell.Box, true)
-			fullBox := group.Box[:]
-			fullBox = append(fullBox, cell)
-			dist.set(fullBox)
-			removed += doRemoveHiddenSubset(&dist, subsetSize, solver, limits, step)
-			if !solver.canContinueStep(limits, step) {
-				break
+		for g := GroupCol; g <= GroupBox; g++ {
+			// Only test a row/column/box of an unsolved cell once
+			cellGroup := cell.GetGroup(g)
+			if !tested[g].Has(cellGroup) {
+				tested[g].Set(cellGroup, true)
+
+				dist.reset(group.GetGroup(g))
+				dist.addCell(cell)
+
+				removed += doRemoveHiddenSubset(&dist, subsetSize, solver, limits, step)
+
+				if !solver.canContinueStep(limits, step) {
+					return removed
+				}
 			}
 		}
 	}
@@ -897,4 +865,97 @@ func doRemoveHiddenSubset(dist *candidateDistribution, subsetSize int, solver *S
 //		http://hodoku.sourceforge.net/en/tech_sdp.php
 // ==================================================
 
-// Find two rows that contain only two candidates for that digit. If two of those candidates are in the same column, one of the other two candidates must be true. All candidates that see both of those cells can therefore be eliminated.
+var StepRemoveSkyscraperCandidates = &SolveStep{
+	Technique:      "Skyscraper",
+	FirstCost:      700,
+	SubsequentCost: 500,
+	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+		return 0, doSkyscraper(solver, limits, step) > 0
+	},
+}
+
+// Find two rows that contain only two candidates for that digit.
+// If two of those candidates are in the same column, one of the other two candidates must be true.
+// All candidates that see both of those cells can therefore be eliminated.
+func doSkyscraper(solver *Solver, limits SolverLimit, step *SolveStep) int {
+	removed := 0
+	removed += doSkyscraperRemoveGroup(solver, limits, step, GroupCol)
+	if solver.canContinueStep(limits, step) {
+		removed += doSkyscraperRemoveGroup(solver, limits, step, GroupRow)
+	}
+	return removed
+}
+
+func doSkyscraperRemoveGroup(solver *Solver, limits SolverLimit, step *SolveStep, groupIndex Group) int {
+	size := solver.Puzzle.Kind.Size()
+	removed := 0
+
+	groupsTested := Bitset{}
+	groups := []*candidateDistribution{}
+
+	for _, group := range solver.Unsolved {
+		cell := group.Cell
+		cellGroup := cell.GetGroup(groupIndex)
+
+		if !groupsTested.Has(cellGroup) {
+			groupsTested.Set(cellGroup, true)
+			dist := newDistribution(size)
+			dist.reset(group.GetGroup(groupIndex))
+			dist.addCell(cell)
+			groups = append(groups, &dist)
+		}
+	}
+
+	oppositeGroup := 1 - groupIndex
+	groupsLast := len(groups) - 1
+	for a := 0; a < groupsLast; a++ {
+		groupA := groups[a].candidates
+		for b := a + 1; b <= groupsLast; b++ {
+			groupB := groups[b].candidates
+			for candidate := 0; candidate < size; candidate++ {
+				if groupA[candidate].size == 2 && groupB[candidate].size == 2 {
+					a0 := groupA[candidate].cells[0]
+					a1 := groupA[candidate].cells[1]
+					b0 := groupB[candidate].cells[0]
+					b1 := groupB[candidate].cells[1]
+
+					if a0.GetGroup(oppositeGroup) == b0.GetGroup(oppositeGroup) {
+						removed += doSkyscraperRemove(solver, limits, step, candidate+1, a1, b1)
+					} else if a0.GetGroup(oppositeGroup) == b1.GetGroup(oppositeGroup) {
+						removed += doSkyscraperRemove(solver, limits, step, candidate+1, a1, b0)
+					} else if a1.GetGroup(oppositeGroup) == b0.GetGroup(oppositeGroup) {
+						removed += doSkyscraperRemove(solver, limits, step, candidate+1, a0, b1)
+					} else if a1.GetGroup(oppositeGroup) == b1.GetGroup(oppositeGroup) {
+						removed += doSkyscraperRemove(solver, limits, step, candidate+1, a0, b0)
+					}
+					if !solver.canContinueStep(limits, step) {
+						return removed
+					}
+				}
+			}
+		}
+	}
+
+	return removed
+}
+
+func doSkyscraperRemove(solver *Solver, limits SolverLimit, step *SolveStep, candidate int, a *Cell, b *Cell) int {
+	removed := 0
+
+	for _, group := range solver.Unsolved {
+		cell := group.Cell
+		if cell.HasCandidate(candidate) && cell.InGroup(a) && cell.InGroup(b) {
+			solver.logStep(step)
+			solver.logBefore(cell)
+			cell.RemoveCandidate(candidate)
+			removed++
+			solver.logAfter(cell)
+
+			if !solver.canContinueStep(limits, step) {
+				return removed
+			}
+		}
+	}
+
+	return removed
+}

@@ -171,6 +171,116 @@ func TestNakedPair(t *testing.T) {
 	checkValid(p, t)
 }
 
+func TestSkyscraper(t *testing.T) {
+	type CandidateTest struct {
+		column int
+		row    int
+		before string
+		after  string
+	}
+
+	tests := []struct {
+		puzzle Puzzle
+		step   *SolveStep
+		max    int
+		tests  []CandidateTest
+	}{
+		{
+			puzzle: Classic.Create([][]int{
+				{6, 9, 7, 0, 0, 0, 0, 0, 2},
+				{0, 0, 1, 9, 7, 2, 0, 6, 3},
+				{0, 0, 3, 0, 0, 6, 7, 9, 0},
+				{9, 1, 2, 0, 0, 0, 6, 0, 7},
+				{3, 7, 4, 2, 6, 0, 9, 5, 0},
+				{8, 6, 5, 7, 0, 9, 0, 2, 4},
+				{1, 4, 8, 6, 9, 3, 2, 7, 5},
+				{7, 0, 9, 0, 2, 4, 0, 0, 6},
+				{0, 0, 6, 8, 0, 7, 0, 0, 9},
+			}),
+			step: StepRemoveSkyscraperCandidates,
+			max:  4,
+			tests: []CandidateTest{
+				{
+					column: 3,
+					row:    2,
+					before: "[1 4 5]",
+					after:  "[4 5]",
+				},
+				{
+					column: 4,
+					row:    2,
+					before: "[1 4 5 8]",
+					after:  "[4 5 8]",
+				},
+				{
+					column: 6,
+					row:    0,
+					before: "[1 4 5 8]",
+					after:  "[4 5 8]",
+				},
+				{
+					column: 7,
+					row:    0,
+					before: "[1 4 8]",
+					after:  "[4 8]",
+				},
+			},
+		},
+		{
+			puzzle: Classic.Create([][]int{
+				{0, 0, 1, 0, 2, 8, 7, 5, 9},
+				{0, 8, 7, 9, 0, 5, 1, 3, 2},
+				{9, 5, 2, 1, 7, 3, 4, 8, 6},
+				{0, 2, 0, 7, 0, 0, 3, 4, 0},
+				{0, 0, 0, 5, 0, 0, 2, 7, 0},
+				{7, 1, 4, 8, 3, 2, 6, 9, 5},
+				{0, 0, 0, 0, 9, 0, 8, 1, 7},
+				{0, 7, 8, 0, 5, 1, 9, 6, 3},
+				{1, 9, 0, 0, 8, 7, 5, 2, 4},
+			}),
+			step: StepRemoveSkyscraperCandidates,
+			max:  1,
+			tests: []CandidateTest{
+				{
+					column: 3,
+					row:    0,
+					before: "[4 6]",
+					after:  "[6]",
+				},
+			},
+		},
+	}
+
+	for testIndex, test := range tests {
+		solver := test.puzzle.Solver()
+		puzzle := &solver.Puzzle
+
+		for _, cellTest := range test.tests {
+			testCell := puzzle.Get(cellTest.column, cellTest.row)
+			actual := fmt.Sprint(testCell.Candidates())
+
+			if actual != cellTest.before {
+				puzzle.PrintConsoleCandidates()
+				t.Fatalf("#%d: Candidates for [%d,%d] are not %s they are %s", testIndex, cellTest.column, cellTest.row, cellTest.before, actual)
+			}
+		}
+
+		removed, _ := test.step.Logic(&solver, SolverLimit{MaxBatches: test.max}, test.step)
+
+		for _, cellTest := range test.tests {
+			testCell := puzzle.Get(cellTest.column, cellTest.row)
+			actual := fmt.Sprint(testCell.Candidates())
+
+			if actual != cellTest.after {
+				puzzle.PrintConsoleCandidates()
+				t.Fatalf("#%d: Candidates for [%d,%d] are not %s they are %s. %d candidates removed.", testIndex, cellTest.column, cellTest.row, cellTest.after, actual, removed)
+			}
+		}
+
+		checkValid(puzzle, t)
+	}
+}
+
 func TestHiddenPair(t *testing.T) {
 	type CandidateTest struct {
 		column int

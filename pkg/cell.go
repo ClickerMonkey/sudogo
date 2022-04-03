@@ -16,6 +16,14 @@ type Cell struct {
 	candidates Candidates
 }
 
+type Group int
+
+const (
+	GroupCol Group = iota
+	GroupRow
+	GroupBox
+)
+
 // Returns whether this cell has a value in it.
 func (cell *Cell) HasValue() bool {
 	return cell.Value != 0
@@ -29,6 +37,17 @@ func (cell *Cell) Empty() bool {
 // Returns if this cell is valid, meaning the value and candidates it has match. If this returns false then there is a logical error in the software.
 func (cell *Cell) Valid() bool {
 	return (cell.Value != 0) == (cell.candidates.Value == 0)
+}
+
+// Returns the group given its index. The group order starting with zero is Col, Row, Box.
+func (cell *Cell) GetGroup(groupIndex Group) int {
+	if groupIndex == GroupCol {
+		return cell.Col
+	} else if groupIndex == GroupRow {
+		return cell.Row
+	} else {
+		return cell.Box
+	}
 }
 
 // Returns whether this cell and the given cell are in the same group (box, column, or row).
