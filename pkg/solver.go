@@ -89,6 +89,7 @@ var StandardSolveSteps = []*SolveStep{
 	StepRemove2StringKiteCandidates,
 	StepRemoveNakedSubsetCandidates2,
 	StepRemoveHiddenSubsetCandidates2,
+	StepRemoveEmptyRectangleCandidates,
 	StepRemoveNakedSubsetCandidates3,
 	StepRemoveHiddenSubsetCandidates3,
 	StepRemoveNakedSubsetCandidates4,
@@ -288,6 +289,10 @@ func (solver *Solver) LogPlacement(after *Cell) {
 	last.Placement = true
 	last.RunningPlacements = last.RunningPlacements + 1
 	solver.logTemplate.RunningPlacements = last.RunningPlacements
+	if solver.LogState {
+		state := solver.Puzzle.Clone()
+		last.State = &state
+	}
 }
 
 func (solver *Solver) Solved() bool {
@@ -618,7 +623,7 @@ func CreateStepRemoveNakedSubsetCandidates(subsetSize int, technique string, fir
 
 var StepRemoveNakedSubsetCandidates2 = CreateStepRemoveNakedSubsetCandidates(2, "Naked Pair", 750, 500)
 var StepRemoveNakedSubsetCandidates3 = CreateStepRemoveNakedSubsetCandidates(3, "Naked Triplet", 2000, 1400)
-var StepRemoveNakedSubsetCandidates4 = CreateStepRemoveNakedSubsetCandidates(4, "Naked Quadruplet", 5000, 4000)
+var StepRemoveNakedSubsetCandidates4 = CreateStepRemoveNakedSubsetCandidates(4, "Naked Quad", 5000, 4000)
 
 // Find naked subsets and remove them as possible values for shared groups
 func doRemoveNakedSubsetCandidates(solver *Solver, subsetSize int, limits SolverLimit, step *SolveStep) int {
@@ -780,7 +785,7 @@ func CreateStepRemoveHiddenSubsetCandidates(subsetSize int, technique string, fi
 
 var StepRemoveHiddenSubsetCandidates2 = CreateStepRemoveHiddenSubsetCandidates(2, "Hidden Pair", 1500, 1200)
 var StepRemoveHiddenSubsetCandidates3 = CreateStepRemoveHiddenSubsetCandidates(3, "Hidden Triplet", 2400, 1600)
-var StepRemoveHiddenSubsetCandidates4 = CreateStepRemoveHiddenSubsetCandidates(4, "Hidden Quadruplet", 7000, 5000)
+var StepRemoveHiddenSubsetCandidates4 = CreateStepRemoveHiddenSubsetCandidates(4, "Hidden Quad", 7000, 5000)
 
 // Find hidden subsets and remove them as possible values for shared groups
 func doRemoveHiddenSubsetCandidates(solver *Solver, subsetSize int, limits SolverLimit, step *SolveStep) int {
@@ -868,8 +873,8 @@ func doRemoveHiddenSubset(dist *candidateDistribution, subsetSize int, solver *S
 
 var StepRemoveSkyscraperCandidates = &SolveStep{
 	Technique:      "Skyscraper",
-	FirstCost:      700,
-	SubsequentCost: 500,
+	FirstCost:      2800,
+	SubsequentCost: 1600,
 	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
 		return 0, doSkyscraper(solver, limits, step) > 0
 	},
@@ -975,8 +980,8 @@ func getGroupCandidateDistributions(solver *Solver, groupIndex Group) []*candida
 
 var StepRemove2StringKiteCandidates = &SolveStep{
 	Technique:      "2-String Kite",
-	FirstCost:      700,
-	SubsequentCost: 500,
+	FirstCost:      2800,
+	SubsequentCost: 1600,
 	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
 		return 0, do2StringKite(solver, limits, step) > 0
 	},
@@ -1031,8 +1036,8 @@ func do2StringKite(solver *Solver, limits SolverLimit, step *SolveStep) int {
 
 var StepRemoveEmptyRectangleCandidates = &SolveStep{
 	Technique:      "Empty Rectangle",
-	FirstCost:      700,
-	SubsequentCost: 500,
+	FirstCost:      2800,
+	SubsequentCost: 1600,
 	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
 		return 0, doEmptyRectangle(solver, limits, step) > 0
 	},
@@ -1057,15 +1062,47 @@ func doEmptyRectangle(solver *Solver, limits SolverLimit, step *SolveStep) int {
 			getEmptyRectangles(box, func(candidate, col, row int) bool {
 				can := false
 				can = findPerpendicularPair(solver, candidate, row, GroupRow, cell.Box, func(groupFound, otherGroup *Cell) bool {
+					dual := countCandidateInGroup(solver, candidate, otherGroup.Row, GroupRow) == 2
 					check := removeCandidate(solver, limits, step, col, otherGroup.Row, candidate)
-					return !check || solver.CanContinueStep(limits, step)
+					if check {
+						removed++
+						if !solver.CanContinueStep(limits, step) {
+							return false
+						}
+						if dual {
+							check = removeCandidate(solver, limits, step, groupFound.Col, groupFound.Row, candidate)
+							if check {
+								removed++
+								if !solver.CanContinueStep(limits, step) {
+									return false
+								}
+							}
+						}
+					}
+					return true
 				})
 				if !can {
 					return false
 				}
 				can = findPerpendicularPair(solver, candidate, col, GroupCol, cell.Box, func(groupFound, otherGroup *Cell) bool {
-					check := removeCandidate(solver, limits, step, row, otherGroup.Col, candidate)
-					return !check || solver.CanContinueStep(limits, step)
+					dual := countCandidateInGroup(solver, candidate, otherGroup.Col, GroupCol) == 2
+					check := removeCandidate(solver, limits, step, otherGroup.Col, row, candidate)
+					if check {
+						removed++
+						if !solver.CanContinueStep(limits, step) {
+							return false
+						}
+						if dual {
+							check = removeCandidate(solver, limits, step, groupFound.Col, groupFound.Row, candidate)
+							if check {
+								removed++
+								if !solver.CanContinueStep(limits, step) {
+									return false
+								}
+							}
+						}
+					}
+					return true
 				})
 				return can
 			})
@@ -1141,7 +1178,7 @@ func findPerpendicularPair(solver *Solver, candidate int, groupSearch int, group
 					matches++
 				}
 			}
-			if matches == 1 {
+			if matches == 1 && match.Box != notBox && match.Box != cell.Box { // the algorithm doesn't require a different box, but it doesn't work in same box
 				if !onPair(cell, match) {
 					return false
 				}
@@ -1162,4 +1199,29 @@ func removeCandidate(solver *Solver, limit SolverLimit, step *SolveStep, col int
 		solver.LogAfter(inter)
 	}
 	return canRemove
+}
+
+func countCandidateInGroup(solver *Solver, candidate int, groupSearch int, groupType Group) int {
+	for _, group := range solver.Unsolved {
+		cell := group.Cell
+
+		if cell.GetGroup(groupType) == groupSearch {
+			searchGroup := group.GetGroup(groupType)
+			matches := 0
+
+			if cell.HasCandidate(candidate) {
+				matches++
+			}
+
+			for _, other := range searchGroup {
+				if other.HasCandidate(candidate) {
+					matches++
+				}
+			}
+
+			return matches
+		}
+	}
+
+	return 0
 }
