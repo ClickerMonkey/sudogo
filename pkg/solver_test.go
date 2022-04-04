@@ -68,11 +68,12 @@ func TestCandidateRemoveSteps(t *testing.T) {
 	}
 
 	tests := []struct {
-		puzzle Puzzle
-		step   *SolveStep
-		max    int
-		tests  []CandidateTest
-		solve  bool
+		puzzle     Puzzle
+		step       *SolveStep
+		max        int
+		tests      []CandidateTest
+		solve      bool
+		solveSteps int
 	}{
 		{
 			puzzle: Classic.Create([][]int{
@@ -110,7 +111,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 				{4, 2, 7, 3, 5, 1, 8, 9, 6},
 				{6, 3, 8, 0, 0, 9, 7, 5, 1},
 			}),
-			step: StepRemovePointingCandidates,
+			step: StepPointingCandidates,
 			max:  1,
 			tests: []CandidateTest{
 				{
@@ -134,7 +135,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 				{0, 0, 0, 0, 0, 7, 3, 0, 5},
 				{0, 0, 0, 0, 3, 9, 6, 4, 1},
 			}),
-			step: StepRemoveClaimingCandidates,
+			step: StepClaimingCandidates,
 			max:  -1,
 			tests: []CandidateTest{
 				{
@@ -158,7 +159,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 				{1, 0, 0, 0, 0, 8, 0, 6, 0},
 				{5, 0, 0, 0, 0, 4, 0, 1, 0},
 			}),
-			step: StepRemoveNakedSubsetCandidates2,
+			step: StepNakedSubsets2,
 			max:  1,
 			tests: []CandidateTest{
 				{
@@ -181,7 +182,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 				{7, 1, 2, 8, 9, 4, 5, 6, 3},
 				{9, 6, 4, 5, 1, 3, 0, 0, 0},
 			}),
-			step: StepRemoveHiddenSubsetCandidates2,
+			step: StepHiddenSubsets2,
 			max:  19,
 			tests: []CandidateTest{
 				{
@@ -210,7 +211,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 				{0, 6, 0, 0, 8, 0, 2, 7, 1},
 				{0, 0, 5, 0, 1, 0, 0, 9, 4},
 			}),
-			step: StepRemoveHiddenSubsetCandidates2,
+			step: StepHiddenSubsets2,
 			max:  1,
 			tests: []CandidateTest{
 				{
@@ -239,7 +240,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 				{0, 0, 0, 0, 0, 0, 7, 0, 0},
 				{6, 8, 0, 5, 7, 0, 0, 0, 2},
 			}),
-			step: StepRemoveHiddenSubsetCandidates3,
+			step: StepHiddenSubsets3,
 			max:  23,
 			tests: []CandidateTest{
 				{
@@ -274,7 +275,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 				{0, 0, 3, 0, 0, 9, 8, 2, 1},
 				{0, 0, 0, 0, 8, 0, 9, 3, 7},
 			}),
-			step: StepRemoveHiddenSubsetCandidates3,
+			step: StepHiddenSubsets3,
 			max:  3,
 			tests: []CandidateTest{
 				{
@@ -309,7 +310,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 				{7, 0, 9, 0, 2, 4, 0, 0, 6},
 				{0, 0, 6, 8, 0, 7, 0, 0, 9},
 			}),
-			step: StepRemoveSkyscraperCandidates,
+			step: StepSkyscraper,
 			max:  4,
 			tests: []CandidateTest{
 				{
@@ -350,7 +351,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 				{0, 7, 8, 0, 5, 1, 9, 6, 3},
 				{1, 9, 0, 0, 8, 7, 5, 2, 4},
 			}),
-			step: StepRemoveSkyscraperCandidates,
+			step: StepSkyscraper,
 			max:  1,
 			tests: []CandidateTest{
 				{
@@ -373,7 +374,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 				{2, 3, 0, 0, 0, 8, 4, 6, 0},
 				{8, 6, 0, 2, 0, 0, 0, 0, 0},
 			}),
-			step: StepRemove2StringKiteCandidates,
+			step: Step2StringKite,
 			max:  1,
 			tests: []CandidateTest{
 				{
@@ -396,7 +397,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 				{5, 8, 0, 0, 0, 2, 1, 6, 7},
 				{2, 1, 6, 8, 5, 7, 3, 4, 9},
 			}),
-			step: StepRemove2StringKiteCandidates,
+			step: Step2StringKite,
 			max:  1,
 			tests: []CandidateTest{
 				{
@@ -419,7 +420,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 				{0, 0, 0, 1, 0, 0, 0, 8, 5},
 				{0, 5, 0, 0, 0, 7, 0, 6, 1},
 			}),
-			step: StepRemoveEmptyRectangleCandidates,
+			step: StepEmptyRectangle,
 			max:  1,
 			tests: []CandidateTest{
 				{
@@ -442,7 +443,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 				{3, 4, 1, 8, 7, 2, 9, 5, 6},
 				{0, 0, 9, 5, 3, 0, 2, 0, 4},
 			}),
-			step: StepRemoveEmptyRectangleCandidates,
+			step: StepEmptyRectangle,
 			max:  1,
 			tests: []CandidateTest{
 				{
@@ -465,7 +466,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 				{3, 9, 0, 7, 8, 2, 0, 5, 4},
 				{0, 4, 7, 5, 9, 0, 2, 8, 3},
 			}),
-			step: StepRemoveEmptyRectangleCandidates,
+			step: StepEmptyRectangle,
 			max:  1,
 			tests: []CandidateTest{
 				{
@@ -488,7 +489,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 				{2, 3, 0, 0, 0, 8, 4, 6, 0},
 				{8, 6, 0, 2, 0, 0, 0, 0, 0},
 			}),
-			step: StepRemoveEmptyRectangleCandidates,
+			step: StepEmptyRectangle,
 			max:  3,
 			tests: []CandidateTest{
 				{
@@ -511,7 +512,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 				{0, 0, 8, 7, 6, 5, 0, 0, 0},
 				{0, 7, 5, 4, 9, 3, 0, 0, 0},
 			}),
-			step: StepRemoveEmptyRectangleCandidates,
+			step: StepEmptyRectangle,
 			max:  1,
 			tests: []CandidateTest{
 				{
@@ -527,13 +528,142 @@ func TestCandidateRemoveSteps(t *testing.T) {
 					after:  "[4 6]",
 				},
 			},
-			solve: true,
+			solve:      true,
+			solveSteps: 2,
+		},
+		{
+			puzzle: Classic.Create([][]int{
+				{0, 4, 1, 7, 2, 9, 0, 3, 0},
+				{7, 6, 9, 0, 0, 3, 4, 0, 2},
+				{0, 3, 2, 6, 4, 0, 7, 1, 9},
+				{4, 0, 3, 9, 0, 0, 1, 7, 0},
+				{6, 0, 7, 0, 0, 4, 9, 0, 3},
+				{1, 9, 5, 3, 7, 0, 0, 2, 4},
+				{2, 1, 4, 5, 6, 7, 3, 9, 8},
+				{3, 7, 6, 0, 9, 0, 5, 4, 1},
+				{9, 5, 8, 4, 3, 1, 2, 6, 7},
+			}),
+			step: StepXWing,
+			max:  2,
+			tests: []CandidateTest{
+				{
+					column: 4,
+					row:    3,
+					before: "[5 8]",
+					after:  "[8]",
+				},
+			},
+			solveSteps: 1,
+		},
+		{
+			puzzle: Classic.Create([][]int{
+				{9, 8, 0, 0, 6, 2, 7, 5, 3},
+				{0, 6, 5, 0, 0, 3, 0, 0, 0},
+				{3, 2, 7, 0, 5, 0, 0, 0, 6},
+				{7, 9, 0, 0, 3, 0, 5, 0, 0},
+				{0, 5, 0, 0, 0, 9, 0, 0, 0},
+				{8, 3, 2, 0, 4, 5, 0, 0, 9},
+				{6, 7, 3, 5, 9, 1, 4, 2, 8},
+				{2, 4, 9, 0, 8, 7, 0, 0, 5},
+				{5, 1, 8, 0, 2, 0, 0, 0, 7},
+			}),
+			step: StepXWing,
+			max:  10,
+			tests: []CandidateTest{
+				{
+					column: 3,
+					row:    1,
+					before: "[1 4 7 8 9]",
+					after:  "[4 7 8 9]",
+				},
+				{
+					column: 6,
+					row:    1,
+					before: "[1 2 8 9]",
+					after:  "[2 8 9]",
+				},
+				{
+					column: 7,
+					row:    1,
+					before: "[1 4 8 9]",
+					after:  "[4 8 9]",
+				},
+				{
+					column: 8,
+					row:    1,
+					before: "[1 2 4]",
+					after:  "[2 4]",
+				},
+				{
+					column: 2,
+					row:    4,
+					before: "[1 4 6]",
+					after:  "[4 6]",
+				},
+				{
+					column: 3,
+					row:    4,
+					before: "[1 2 6 7 8]",
+					after:  "[2 6 7 8]",
+				},
+				{
+					column: 6,
+					row:    4,
+					before: "[1 2 3 6 8]",
+					after:  "[2 3 6 8]",
+				},
+				{
+					column: 7,
+					row:    4,
+					before: "[1 3 4 6 7 8]",
+					after:  "[3 4 6 7 8]",
+				},
+				{
+					column: 8,
+					row:    4,
+					before: "[1 2 4]",
+					after:  "[2 4]",
+				},
+			},
+			solveSteps: 9,
+		},
+		{
+			puzzle: Classic.Create([][]int{
+				{1, 6, 0, 5, 4, 3, 0, 7, 0},
+				{0, 7, 8, 6, 0, 1, 4, 3, 5},
+				{4, 3, 5, 8, 0, 7, 6, 0, 1},
+				{7, 2, 0, 4, 5, 8, 0, 6, 9},
+				{6, 0, 0, 9, 1, 2, 0, 5, 7},
+				{0, 0, 0, 3, 7, 6, 0, 0, 4},
+				{0, 1, 6, 0, 3, 0, 0, 4, 0},
+				{3, 0, 0, 0, 8, 0, 0, 1, 6},
+				{0, 0, 7, 1, 6, 4, 5, 0, 3},
+			}),
+			step: StepSwordfish,
+			max:  1,
+			tests: []CandidateTest{
+				{
+					column: 7,
+					row:    5,
+					before: "[2 8]",
+					after:  "[8]",
+				},
+				{
+					column: 0,
+					row:    6,
+					before: "[2 5 8 9]",
+					after:  "[5 8 9]",
+				},
+			},
+			solveSteps: 2,
 		},
 	}
 
 	for testIndex, test := range tests {
 		solver := test.puzzle.Solver()
 		puzzle := &solver.Puzzle
+
+		solver.LogEnabled = true
 
 		for _, cellTest := range test.tests {
 			testCell := puzzle.Get(cellTest.column, cellTest.row)
@@ -560,6 +690,10 @@ func TestCandidateRemoveSteps(t *testing.T) {
 				puzzle.PrintConsoleCandidates()
 				t.Errorf("#%d (%s): Value for [%d,%d] is not %d it is %d.", testIndex, test.step.Technique, cellTest.column, cellTest.row, cellTest.value, testCell.Value)
 			}
+		}
+
+		if test.solveSteps > 0 && test.solveSteps != len(solver.Logs) {
+			t.Errorf("#%d (%s): Unexpected solve steps %d, expected: %d.", testIndex, test.step.Technique, len(solver.Logs), test.solveSteps)
 		}
 
 		if test.solve {

@@ -82,28 +82,31 @@ type SolveStep struct {
 var StandardSolveSteps = []*SolveStep{
 	StepNakedSingle,
 	StepHiddenSingle,
-	StepRemovePointingCandidates,
-	StepRemoveClaimingCandidates,
+	StepPointingCandidates,
+	StepClaimingCandidates,
 	StepConstraints,
-	StepRemoveSkyscraperCandidates,
-	StepRemove2StringKiteCandidates,
-	StepRemoveNakedSubsetCandidates2,
-	StepRemoveHiddenSubsetCandidates2,
-	StepRemoveEmptyRectangleCandidates,
-	StepRemoveNakedSubsetCandidates3,
-	StepRemoveHiddenSubsetCandidates3,
-	StepRemoveNakedSubsetCandidates4,
-	StepRemoveHiddenSubsetCandidates4,
+	StepSkyscraper,
+	Step2StringKite,
+	StepNakedSubsets2,
+	StepHiddenSubsets2,
+	StepEmptyRectangle,
+	StepXWing,
+	StepNakedSubsets3,
+	StepHiddenSubsets3,
+	StepSwordfish,
+	StepNakedSubsets4,
+	StepHiddenSubsets4,
+	StepJellyfish,
 }
 
 var GenerateSolveSteps = []*SolveStep{
 	StepNakedSingle,
 	StepHiddenSingle,
-	StepRemovePointingCandidates,
-	StepRemoveClaimingCandidates,
+	StepPointingCandidates,
+	StepClaimingCandidates,
 	StepConstraints,
-	StepRemoveNakedSubsetCandidates2,
-	StepRemoveNakedSubsetCandidates3,
+	StepNakedSubsets2,
+	StepNakedSubsets3,
 }
 
 func NewSolver(starting Puzzle) Solver {
@@ -462,10 +465,10 @@ var StepConstraints = &SolveStep{
 }
 
 // ==================================================
-// Step: Remove Pointing Candidates
+// Step: Pointing Candidates
 //		http://hodoku.sourceforge.net/en/tech_intersections.php
 // ==================================================
-var StepRemovePointingCandidates = &SolveStep{
+var StepPointingCandidates = &SolveStep{
 	Technique:      "Pointing Candidates",
 	FirstCost:      350,
 	SubsequentCost: 200,
@@ -541,10 +544,10 @@ func doRemovePointingCandidatesGroup(solver *Solver, limits SolverLimit, step *S
 }
 
 // ==================================================
-// Step: Remove Pointing Candidates
+// Step: Claiming Candidates
 //		http://hodoku.sourceforge.net/en/tech_intersections.php
 // ==================================================
-var StepRemoveClaimingCandidates = &SolveStep{
+var StepClaimingCandidates = &SolveStep{
 	Technique:      "Claiming Candidates",
 	FirstCost:      350,
 	SubsequentCost: 200,
@@ -606,7 +609,7 @@ func doRemoveClaimingCandidatesGroups(solver *Solver, limits SolverLimit, step *
 // Step: Remove Naked Subset Candidates
 //		http://hodoku.sourceforge.net/en/tech_naked.php
 // ==================================================
-func CreateStepRemoveNakedSubsetCandidates(subsetSize int, technique string, firstCost int, subsequentCost int) *SolveStep {
+func CreateStepNakedSubsets(subsetSize int, technique string, firstCost int, subsequentCost int) *SolveStep {
 	return &SolveStep{
 		Technique:      technique,
 		FirstCost:      firstCost,
@@ -621,9 +624,9 @@ func CreateStepRemoveNakedSubsetCandidates(subsetSize int, technique string, fir
 	}
 }
 
-var StepRemoveNakedSubsetCandidates2 = CreateStepRemoveNakedSubsetCandidates(2, "Naked Pair", 750, 500)
-var StepRemoveNakedSubsetCandidates3 = CreateStepRemoveNakedSubsetCandidates(3, "Naked Triplet", 2000, 1400)
-var StepRemoveNakedSubsetCandidates4 = CreateStepRemoveNakedSubsetCandidates(4, "Naked Quad", 5000, 4000)
+var StepNakedSubsets2 = CreateStepNakedSubsets(2, "Naked Pair", 750, 500)
+var StepNakedSubsets3 = CreateStepNakedSubsets(3, "Naked Triplet", 2000, 1400)
+var StepNakedSubsets4 = CreateStepNakedSubsets(4, "Naked Quad", 5000, 4000)
 
 // Find naked subsets and remove them as possible values for shared groups
 func doRemoveNakedSubsetCandidates(solver *Solver, subsetSize int, limits SolverLimit, step *SolveStep) int {
@@ -768,7 +771,7 @@ func (dist *candidateDistribution) addCell(cell *Cell) {
 // Step: Remove Hidden Subset Candidates
 //		http://hodoku.sourceforge.net/en/tech_hidden.php
 // ==================================================
-func CreateStepRemoveHiddenSubsetCandidates(subsetSize int, technique string, firstCost int, subsequentCost int) *SolveStep {
+func CreateStepHiddenSubsets(subsetSize int, technique string, firstCost int, subsequentCost int) *SolveStep {
 	return &SolveStep{
 		Technique:      technique,
 		FirstCost:      firstCost,
@@ -783,9 +786,9 @@ func CreateStepRemoveHiddenSubsetCandidates(subsetSize int, technique string, fi
 	}
 }
 
-var StepRemoveHiddenSubsetCandidates2 = CreateStepRemoveHiddenSubsetCandidates(2, "Hidden Pair", 1500, 1200)
-var StepRemoveHiddenSubsetCandidates3 = CreateStepRemoveHiddenSubsetCandidates(3, "Hidden Triplet", 2400, 1600)
-var StepRemoveHiddenSubsetCandidates4 = CreateStepRemoveHiddenSubsetCandidates(4, "Hidden Quad", 7000, 5000)
+var StepHiddenSubsets2 = CreateStepHiddenSubsets(2, "Hidden Pair", 1500, 1200)
+var StepHiddenSubsets3 = CreateStepHiddenSubsets(3, "Hidden Triplet", 2400, 1600)
+var StepHiddenSubsets4 = CreateStepHiddenSubsets(4, "Hidden Quad", 7000, 5000)
 
 // Find hidden subsets and remove them as possible values for shared groups
 func doRemoveHiddenSubsetCandidates(solver *Solver, subsetSize int, limits SolverLimit, step *SolveStep) int {
@@ -871,7 +874,7 @@ func doRemoveHiddenSubset(dist *candidateDistribution, subsetSize int, solver *S
 //		http://hodoku.sourceforge.net/en/tech_sdp.php
 // ==================================================
 
-var StepRemoveSkyscraperCandidates = &SolveStep{
+var StepSkyscraper = &SolveStep{
 	Technique:      "Skyscraper",
 	FirstCost:      2800,
 	SubsequentCost: 1600,
@@ -978,7 +981,7 @@ func getGroupCandidateDistributions(solver *Solver, groupIndex Group) []*candida
 //		http://hodoku.sourceforge.net/en/tech_sdp.php
 // ==================================================
 
-var StepRemove2StringKiteCandidates = &SolveStep{
+var Step2StringKite = &SolveStep{
 	Technique:      "2-String Kite",
 	FirstCost:      2800,
 	SubsequentCost: 1600,
@@ -1030,11 +1033,11 @@ func do2StringKite(solver *Solver, limits SolverLimit, step *SolveStep) int {
 }
 
 // ==================================================
-// Step: Empty Rectangle Candidates
+// Step: Empty Rectangle
 //		http://hodoku.sourceforge.net/en/tech_sdp.php#er
 // ==================================================
 
-var StepRemoveEmptyRectangleCandidates = &SolveStep{
+var StepEmptyRectangle = &SolveStep{
 	Technique:      "Empty Rectangle",
 	FirstCost:      2800,
 	SubsequentCost: 1600,
@@ -1224,4 +1227,93 @@ func countCandidateInGroup(solver *Solver, candidate int, groupSearch int, group
 	}
 
 	return 0
+}
+
+// ==================================================
+// Step: Remove Naked Subset Candidates
+//		http://hodoku.sourceforge.net/en/tech_naked.php
+// ==================================================
+func CreateStepBasicFish(setSize int, technique string, firstCost int, subsequentCost int) *SolveStep {
+	return &SolveStep{
+		Technique:      technique,
+		FirstCost:      firstCost,
+		SubsequentCost: subsequentCost,
+		Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+			removed := false
+			if solver.CanContinueStep(limits, step) {
+				removed = doBasicFish(solver, limits, step, setSize) > 0
+			}
+			return 0, removed
+		},
+	}
+}
+
+var StepXWing = CreateStepBasicFish(2, "X-Wing", 2800, 1600)
+var StepSwordfish = CreateStepBasicFish(3, "Swordfish", 8000, 6000)
+var StepJellyfish = CreateStepBasicFish(4, "Jellyfish", 10000, 8000)
+
+func doBasicFish(solver *Solver, limits SolverLimit, step *SolveStep, setSize int) int {
+	removed := 0
+	removed += doBasicFishGroups(solver, limits, step, setSize, GroupRow)
+	if solver.CanContinueStep(limits, step) {
+		removed += doBasicFishGroups(solver, limits, step, setSize, GroupCol)
+	}
+	return removed
+}
+
+func doBasicFishGroups(solver *Solver, limits SolverLimit, step *SolveStep, setSize int, groupType Group) int {
+	size := solver.Puzzle.Kind.Size()
+	removed := 0
+	groups := getGroupCandidateDistributions(solver, groupType)
+
+	for candidateIndex := 0; candidateIndex < size; candidateIndex++ {
+		candidate := candidateIndex + 1
+		matched := make([]candidateCells, 0)
+		for _, group := range groups {
+			groupCandidates := group.candidates[candidateIndex]
+			if groupCandidates.size > 0 && groupCandidates.size <= setSize {
+				matched = append(matched, groupCandidates)
+			}
+		}
+		if len(matched) >= setSize {
+			combs := combinations[candidateCells]{}
+			for i := 0; i < setSize; i++ {
+				combs.add(matched)
+			}
+
+			set := combs.start()
+			for combs.next(set) {
+				rowsHit := Bitset{}
+				colsHit := Bitset{}
+				for _, candCells := range set {
+					for k := 0; k < candCells.size; k++ {
+						c := candCells.cells[k]
+						rowsHit.Set(c.Row, true)
+						colsHit.Set(c.Col, true)
+					}
+				}
+				if rowsHit.Count == setSize && colsHit.Count == setSize {
+					for _, group := range solver.Cells {
+						cell := group.Cell
+						inColumn := colsHit.Has(cell.Col)
+						inRow := rowsHit.Has(cell.Row)
+						if cell.HasCandidate(candidate) && ((inRow && !inColumn) || (!inRow && inColumn)) {
+							solver.LogStep(step)
+							solver.LogBefore(cell)
+							cell.RemoveCandidate(candidate)
+							removed++
+							solver.LogAfter(cell)
+
+							if !solver.CanContinueStep(limits, step) {
+								return removed
+							}
+						}
+					}
+					break
+				}
+			}
+		}
+	}
+
+	return removed
 }
