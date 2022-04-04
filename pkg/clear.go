@@ -121,7 +121,7 @@ func (gen *Generator) ClearCells(puzzle *Puzzle, limits ClearLimits) (*Puzzle, i
 			uniqueSolution := nextSolutions[0]
 			states++
 
-			if !uniqueSolution.canContinue(limits.SolverLimit, 0) {
+			if !uniqueSolution.CanContinue(limits.SolverLimit, 0) {
 				return &next, states
 			}
 
