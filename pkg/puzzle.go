@@ -60,6 +60,17 @@ func (puzzle *Puzzle) Contains(col int, row int) bool {
 	return col >= 0 && col < size && row >= 0 && row < size
 }
 
+func (puzzle *Puzzle) IsCandidate(value int) bool {
+	return value >= puzzle.MinCandidate() && value <= puzzle.MaxCandidate()
+}
+
+func (puzzle *Puzzle) MinCandidate() int {
+	return 1
+}
+func (puzzle *Puzzle) MaxCandidate() int {
+	return puzzle.Kind.Size()
+}
+
 func (puzzle *Puzzle) Get(col int, row int) *Cell {
 	return &puzzle.Cells[row*puzzle.Kind.Size()+col]
 }
@@ -405,17 +416,18 @@ func (puzzle *Puzzle) UniqueId() string {
 }
 
 func (puzzle *Puzzle) HasUniqueSolution() bool {
-	return len(puzzle.GetSolutions(SolutionLimit{MaxSolutions: 2})) == 1
+	return len(puzzle.GetSolutions(SolutionsLimit{MaxSolutions: 2})) == 1
 }
 
-type SolutionLimit struct {
-	SolverLimit
+type SolutionsLimit struct {
+	SolveLimit
 	MaxSolutions int
 	LogEnabled   bool
+	LogState     bool
 }
 
-func (puzzle *Puzzle) GetSolutions(limits SolutionLimit) []*Solver {
-	solutions := make([]*Solver, 0, Max(0, limits.MaxSolutions))
+func (puzzle *Puzzle) GetSolutions(limit SolutionsLimit) []*Solver {
+	solutions := make([]*Solver, 0, Max(0, limit.MaxSolutions))
 	unique := map[string]bool{}
 
 	solvers := NewQueue[Solver]()
@@ -423,7 +435,7 @@ func (puzzle *Puzzle) GetSolutions(limits SolutionLimit) []*Solver {
 
 	for !solvers.Empty() {
 		solver := solvers.Poll()
-		solution, solved := solver.Solve(limits.SolverLimit)
+		solution, solved := solver.Solve(limit.SolveLimit)
 
 		if !solved {
 			min := solver.GetMinCandidateCount()
@@ -433,7 +445,8 @@ func (puzzle *Puzzle) GetSolutions(limits SolutionLimit) []*Solver {
 			if minCell != nil {
 				for _, candidate := range minCell.Cell.Candidates() {
 					newSolver := solution.Solver()
-					newSolver.LogEnabled = limits.LogEnabled
+					newSolver.LogEnabled = limit.LogEnabled
+					newSolver.LogState = limit.LogState
 					if newSolver.Set(minCell.Cell.Col, minCell.Cell.Row, candidate) {
 						solvers.Offer(newSolver)
 					}
@@ -443,7 +456,7 @@ func (puzzle *Puzzle) GetSolutions(limits SolutionLimit) []*Solver {
 			id := solution.UniqueId()
 			if !unique[id] {
 				solutions = append(solutions, solver)
-				if limits.MaxSolutions > 0 && len(solutions) == limits.MaxSolutions {
+				if limit.MaxSolutions > 0 && len(solutions) == limit.MaxSolutions {
 					break
 				}
 				unique[id] = true

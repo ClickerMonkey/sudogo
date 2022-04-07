@@ -2,13 +2,13 @@ package sudogo
 
 type Stack[T any] struct {
 	items []T
-	size int
+	size  int
 }
 
 func NewStack[T any](initialCapacity int) Stack[T] {
 	return Stack[T]{
 		items: make([]T, initialCapacity),
-		size: 0,
+		size:  0,
 	}
 }
 
@@ -16,7 +16,7 @@ func (stack *Stack[T]) Peek() *T {
 	if stack.size == 0 {
 		return nil
 	}
-	return &stack.items[stack.size - 1]
+	return &stack.items[stack.size-1]
 }
 
 func (stack *Stack[T]) Pop() *T {
@@ -61,7 +61,6 @@ func (stack *Stack[T]) At(index int) *T {
 	return &stack.items[index]
 }
 
-
 type Queue[T any] struct {
 	head *QueueNode[T]
 	tail *QueueNode[T]
@@ -78,7 +77,7 @@ func NewQueue[T any]() Queue[T] {
 
 type QueueNode[T any] struct {
 	value T
-	next *QueueNode[T]
+	next  *QueueNode[T]
 }
 
 func (queue *Queue[T]) Peek() *T {
@@ -95,7 +94,7 @@ func (queue *Queue[T]) Poll() *T {
 
 	queue.size--
 	value := &queue.head.value
-	
+
 	if queue.size == 0 {
 		queue.Clear()
 	} else {

@@ -20,7 +20,7 @@ func TestSolveSimple(t *testing.T) {
 	})
 
 	s := original.Solver()
-	solution, solved := s.Solve(SolverLimit{})
+	solution, solved := s.Solve(SolveLimit{})
 
 	if !solved {
 		solution.PrintConsoleCandidates()
@@ -44,7 +44,7 @@ func TestSolveHiddenSingle(t *testing.T) {
 	})
 
 	s := original.Solver()
-	solution, solved := s.Solve(SolverLimit{})
+	solution, solved := s.Solve(SolveLimit{})
 
 	if solution.Get(3, 2).Value != 6 {
 		t.Errorf("The solver failed to use hidden single logic on r3c4.")
@@ -675,7 +675,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 			}
 		}
 
-		removed, _ := test.step.Logic(&solver, SolverLimit{MaxBatches: test.max}, test.step)
+		removed, _ := test.step.Logic(&solver, SolveLimit{MaxBatches: test.max}, test.step)
 
 		for _, cellTest := range test.tests {
 			testCell := puzzle.Get(cellTest.column, cellTest.row)
@@ -697,7 +697,7 @@ func TestCandidateRemoveSteps(t *testing.T) {
 		}
 
 		if test.solve {
-			solution, solved := solver.Solve(SolverLimit{})
+			solution, solved := solver.Solve(SolveLimit{})
 
 			if !solved {
 				solution.PrintConsoleCandidates()
@@ -750,14 +750,14 @@ func TestSolveHard(t *testing.T) {
 
 	for _, test := range tests {
 		start := time.Now()
-		solutions := test.puzzle.GetSolutions(SolutionLimit{MaxSolutions: test.max})
+		solutions := test.puzzle.GetSolutions(SolutionsLimit{MaxSolutions: test.max})
 		duration := time.Since(start)
 
 		if len(solutions) != test.solutions {
 			solver := test.puzzle.Solver()
 			solver.LogState = true
 			solver.LogEnabled = true
-			solver.Solve(SolverLimit{})
+			solver.Solve(SolveLimit{})
 			printSolveLogs(&solver, true)
 
 			t.Errorf("An invalid number of solutions found %d expected %d in %s for %s.", len(solutions), test.solutions, duration, test.puzzle.String())
@@ -767,6 +767,156 @@ func TestSolveHard(t *testing.T) {
 
 		for _, solution := range solutions {
 			checkValid(&solution.Puzzle, t)
+		}
+	}
+}
+
+func TestSolveGandalf(t *testing.T) {
+	kind := Kind{
+		BoxSize: Size{3, 3},
+		Constraints: []Constraint{
+			&ConstraintDifference{
+				Min: 2,
+				Relative: &[]Position{
+					{-1, 0},
+					{1, 0},
+					{0, 1},
+					{0, -1},
+				},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{3, 0},
+				Second: Position{4, 0},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{8, 0},
+				Second: Position{8, 1},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{2, 1},
+				Second: Position{2, 2},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{4, 1},
+				Second: Position{4, 2},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{7, 1},
+				Second: Position{7, 2},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{0, 3},
+				Second: Position{0, 4},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{5, 3},
+				Second: Position{5, 4},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{5, 3},
+				Second: Position{6, 3},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{6, 3},
+				Second: Position{7, 3},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{8, 3},
+				Second: Position{8, 4},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{1, 4},
+				Second: Position{1, 5},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{5, 4},
+				Second: Position{5, 5},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{1, 5},
+				Second: Position{2, 5},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{3, 5},
+				Second: Position{4, 5},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{3, 6},
+				Second: Position{3, 7},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{3, 6},
+				Second: Position{4, 6},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{5, 6},
+				Second: Position{6, 6},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{6, 6},
+				Second: Position{6, 7},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{1, 7},
+				Second: Position{1, 8},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{2, 7},
+				Second: Position{3, 7},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{6, 8},
+				Second: Position{7, 8},
+			},
+			&ConstraintScalePair{
+				Scale:  2,
+				First:  Position{7, 8},
+				Second: Position{8, 8},
+			},
+		},
+	}
+
+	puzzle := kind.Empty()
+
+	start := time.Now()
+
+	// solver := puzzle.Solver()
+	// solver.Solve(SolverLimit{})
+	// solver.Puzzle.PrintConsoleCandidates()
+
+	solutions := puzzle.GetSolutions(SolutionsLimit{})
+	// solutions := make([]*Solver, 0)
+
+	duration := time.Since(start)
+
+	if len(solutions) == 0 {
+		t.Fatalf("TestSolveGandalf failed to find any solutions in %s", duration)
+	} else {
+		t.Logf("TestSolveGandalf found %d solutions in %s", len(solutions), duration)
+
+		for _, s := range solutions {
+			s.Puzzle.PrintConsole()
 		}
 	}
 }
@@ -786,7 +936,7 @@ func TestLogs(t *testing.T) {
 
 	solver := original.Solver()
 	solver.LogEnabled = true
-	solver.Solve(SolverLimit{})
+	solver.Solve(SolveLimit{})
 
 	fmt.Println("TestLogs")
 	printSolveLogs(&solver, false)

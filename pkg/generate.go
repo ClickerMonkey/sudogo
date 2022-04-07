@@ -86,7 +86,7 @@ func (gen *Generator) GetRandomPressured() *CellGroups {
 
 func (gen *Generator) Attempt() *Puzzle {
 	for !gen.IsComplete() {
-		gen.solver.Solve(SolverLimit{})
+		gen.solver.Solve(SolveLimit{})
 
 		if gen.IsComplete() {
 			break

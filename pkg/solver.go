@@ -62,7 +62,7 @@ func (log SolverLog) String() string {
 	}
 }
 
-type SolverLimit struct {
+type SolveLimit struct {
 	MinCost       int
 	MaxCost       int
 	MaxPlacements int
@@ -70,7 +70,7 @@ type SolverLimit struct {
 	MaxBatches    int
 }
 
-type SolveStepLogic func(solver *Solver, limits SolverLimit, step *SolveStep) (placements int, restart bool)
+type SolveStepLogic func(solver *Solver, limits SolveLimit, step *SolveStep) (placements int, restart bool)
 
 type SolveStep struct {
 	Technique      string
@@ -226,7 +226,7 @@ func (solver *Solver) GetLastLog() *SolverLog {
 	return &solver.Logs[n]
 }
 
-func (solver *Solver) CanContinue(limits SolverLimit, cost int) bool {
+func (solver *Solver) CanContinue(limits SolveLimit, cost int) bool {
 	lastLog := solver.GetLastLog()
 	if limits.MaxLogs > 0 && lastLog.Index >= limits.MaxLogs {
 		return false
@@ -246,7 +246,7 @@ func (solver *Solver) CanContinue(limits SolverLimit, cost int) bool {
 	return true
 }
 
-func (solver *Solver) CanContinueStep(limits SolverLimit, step *SolveStep) bool {
+func (solver *Solver) CanContinueStep(limits SolveLimit, step *SolveStep) bool {
 	return solver.CanContinue(limits, solver.GetCost(step))
 }
 
@@ -302,7 +302,7 @@ func (solver *Solver) Solved() bool {
 	return len(solver.Unsolved) == 0
 }
 
-func (solver *Solver) Solve(limits SolverLimit) (*Puzzle, bool) {
+func (solver *Solver) Solve(limits SolveLimit) (*Puzzle, bool) {
 	steps := solver.Steps
 	placing := true
 	for placing {
@@ -334,7 +334,7 @@ var StepNakedSingle = &SolveStep{
 	Technique:      "Naked Single",
 	FirstCost:      100,
 	SubsequentCost: 100,
-	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+	Logic: func(solver *Solver, limits SolveLimit, step *SolveStep) (int, bool) {
 		placements := 0
 		for solver.CanContinueStep(limits, step) {
 			group, groupValue := getNakedSingle(solver)
@@ -371,7 +371,7 @@ var StepHiddenSingle = &SolveStep{
 	Technique:      "Hidden Single",
 	FirstCost:      100,
 	SubsequentCost: 100,
-	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+	Logic: func(solver *Solver, limits SolveLimit, step *SolveStep) (int, bool) {
 		placements := 0
 		for solver.CanContinueStep(limits, step) {
 			group, groupValue := getHiddenSingle(solver)
@@ -432,7 +432,7 @@ var StepConstraints = &SolveStep{
 	Technique:      "Constraints",
 	FirstCost:      0,
 	SubsequentCost: 0,
-	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+	Logic: func(solver *Solver, limits SolveLimit, step *SolveStep) (int, bool) {
 		removed := 0
 
 		for _, group := range solver.Unsolved {
@@ -472,7 +472,7 @@ var StepPointingCandidates = &SolveStep{
 	Technique:      "Pointing Candidates",
 	FirstCost:      350,
 	SubsequentCost: 200,
-	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+	Logic: func(solver *Solver, limits SolveLimit, step *SolveStep) (int, bool) {
 		removed := false
 		if solver.CanContinueStep(limits, step) {
 			removed = doRemovePointingCandidates(solver, limits, step) > 0
@@ -482,7 +482,7 @@ var StepPointingCandidates = &SolveStep{
 }
 
 // If in a box all candidates of a certain digit are confined to a row or column, that digit cannot appear outside of that box in that row or column.
-func doRemovePointingCandidates(solver *Solver, limits SolverLimit, step *SolveStep) int {
+func doRemovePointingCandidates(solver *Solver, limits SolveLimit, step *SolveStep) int {
 	removed := 0
 
 	for _, group := range solver.Unsolved {
@@ -499,7 +499,7 @@ func doRemovePointingCandidates(solver *Solver, limits SolverLimit, step *SolveS
 	return removed
 }
 
-func doRemovePointingCandidatesGroup(solver *Solver, limits SolverLimit, step *SolveStep, group *CellGroups, groupIndex Group) int {
+func doRemovePointingCandidatesGroup(solver *Solver, limits SolveLimit, step *SolveStep, group *CellGroups, groupIndex Group) int {
 	// all candidates in this box's group that are shared
 	cell := group.Cell
 	cand := cell.candidates
@@ -551,7 +551,7 @@ var StepClaimingCandidates = &SolveStep{
 	Technique:      "Claiming Candidates",
 	FirstCost:      350,
 	SubsequentCost: 200,
-	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+	Logic: func(solver *Solver, limits SolveLimit, step *SolveStep) (int, bool) {
 		removed := false
 		if solver.CanContinueStep(limits, step) {
 			removed = doRemoveClaimingCandidates(solver, limits, step) > 0
@@ -561,7 +561,7 @@ var StepClaimingCandidates = &SolveStep{
 }
 
 // If in a row or column a candidate only appears in a single box then that candidate can be removed from other cells in that box
-func doRemoveClaimingCandidates(solver *Solver, limits SolverLimit, step *SolveStep) int {
+func doRemoveClaimingCandidates(solver *Solver, limits SolveLimit, step *SolveStep) int {
 	removed := 0
 	removed += doRemoveClaimingCandidatesGroups(solver, limits, step, GroupCol)
 	if solver.CanContinueStep(limits, step) {
@@ -570,7 +570,7 @@ func doRemoveClaimingCandidates(solver *Solver, limits SolverLimit, step *SolveS
 	return removed
 }
 
-func doRemoveClaimingCandidatesGroups(solver *Solver, limits SolverLimit, step *SolveStep, groupIndex Group) int {
+func doRemoveClaimingCandidatesGroups(solver *Solver, limits SolveLimit, step *SolveStep, groupIndex Group) int {
 	removed := 0
 
 	for _, group := range solver.Unsolved {
@@ -614,7 +614,7 @@ func CreateStepNakedSubsets(subsetSize int, technique string, firstCost int, sub
 		Technique:      technique,
 		FirstCost:      firstCost,
 		SubsequentCost: subsequentCost,
-		Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+		Logic: func(solver *Solver, limits SolveLimit, step *SolveStep) (int, bool) {
 			removed := false
 			if solver.CanContinueStep(limits, step) {
 				removed = doRemoveNakedSubsetCandidates(solver, subsetSize, limits, step) > 0
@@ -629,7 +629,7 @@ var StepNakedSubsets3 = CreateStepNakedSubsets(3, "Naked Triplet", 2000, 1400)
 var StepNakedSubsets4 = CreateStepNakedSubsets(4, "Naked Quad", 5000, 4000)
 
 // Find naked subsets and remove them as possible values for shared groups
-func doRemoveNakedSubsetCandidates(solver *Solver, subsetSize int, limits SolverLimit, step *SolveStep) int {
+func doRemoveNakedSubsetCandidates(solver *Solver, subsetSize int, limits SolveLimit, step *SolveStep) int {
 	removed := 0
 
 	for _, group := range solver.Unsolved {
@@ -656,7 +656,7 @@ func doRemoveNakedSubsetCandidates(solver *Solver, subsetSize int, limits Solver
 }
 
 // Remove naked subsets from group
-func removeNakedSubsetCandidatesFromGroup(cellGroup *CellGroups, subsetSize int, solver *Solver, limits SolverLimit, step *SolveStep, group []*Cell) int {
+func removeNakedSubsetCandidatesFromGroup(cellGroup *CellGroups, subsetSize int, solver *Solver, limits SolveLimit, step *SolveStep, group []*Cell) int {
 	removed := 0
 	matches := 1
 	candidates := cellGroup.Cell.candidates
@@ -687,7 +687,7 @@ func removeNakedSubsetCandidatesFromGroup(cellGroup *CellGroups, subsetSize int,
 	return removed
 }
 
-func removeCandidatesFromDifferent(group []*Cell, candidates Candidates, solver *Solver, limits SolverLimit, step *SolveStep) int {
+func removeCandidatesFromDifferent(group []*Cell, candidates Candidates, solver *Solver, limits SolveLimit, step *SolveStep) int {
 	removed := 0
 	hasOverlap := false
 	for _, other := range group {
@@ -776,7 +776,7 @@ func CreateStepHiddenSubsets(subsetSize int, technique string, firstCost int, su
 		Technique:      technique,
 		FirstCost:      firstCost,
 		SubsequentCost: subsequentCost,
-		Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+		Logic: func(solver *Solver, limits SolveLimit, step *SolveStep) (int, bool) {
 			removed := false
 			if solver.CanContinueStep(limits, step) {
 				removed = doRemoveHiddenSubsetCandidates(solver, subsetSize, limits, step) > 0
@@ -791,7 +791,7 @@ var StepHiddenSubsets3 = CreateStepHiddenSubsets(3, "Hidden Triplet", 2400, 1600
 var StepHiddenSubsets4 = CreateStepHiddenSubsets(4, "Hidden Quad", 7000, 5000)
 
 // Find hidden subsets and remove them as possible values for shared groups
-func doRemoveHiddenSubsetCandidates(solver *Solver, subsetSize int, limits SolverLimit, step *SolveStep) int {
+func doRemoveHiddenSubsetCandidates(solver *Solver, subsetSize int, limits SolveLimit, step *SolveStep) int {
 	dist := newDistribution(solver.Puzzle.Kind.Size())
 	tested := [3]Bitset{}
 	removed := 0
@@ -820,7 +820,7 @@ func doRemoveHiddenSubsetCandidates(solver *Solver, subsetSize int, limits Solve
 	return removed
 }
 
-func doRemoveHiddenSubset(dist *candidateDistribution, subsetSize int, solver *Solver, limits SolverLimit, step *SolveStep) int {
+func doRemoveHiddenSubset(dist *candidateDistribution, subsetSize int, solver *Solver, limits SolveLimit, step *SolveStep) int {
 	removed := 0
 	n := len(dist.candidates)
 
@@ -878,7 +878,7 @@ var StepSkyscraper = &SolveStep{
 	Technique:      "Skyscraper",
 	FirstCost:      2800,
 	SubsequentCost: 1600,
-	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+	Logic: func(solver *Solver, limits SolveLimit, step *SolveStep) (int, bool) {
 		return 0, doSkyscraper(solver, limits, step) > 0
 	},
 }
@@ -886,7 +886,7 @@ var StepSkyscraper = &SolveStep{
 // Find two rows that contain only two candidates for that digit.
 // If two of those candidates are in the same column, one of the other two candidates must be true.
 // All candidates that see both of those cells can therefore be eliminated.
-func doSkyscraper(solver *Solver, limits SolverLimit, step *SolveStep) int {
+func doSkyscraper(solver *Solver, limits SolveLimit, step *SolveStep) int {
 	removed := 0
 	removed += doSkyscraperRemoveGroup(solver, limits, step, GroupCol)
 	if solver.CanContinueStep(limits, step) {
@@ -895,7 +895,7 @@ func doSkyscraper(solver *Solver, limits SolverLimit, step *SolveStep) int {
 	return removed
 }
 
-func doSkyscraperRemoveGroup(solver *Solver, limits SolverLimit, step *SolveStep, groupIndex Group) int {
+func doSkyscraperRemoveGroup(solver *Solver, limits SolveLimit, step *SolveStep, groupIndex Group) int {
 	size := solver.Puzzle.Kind.Size()
 	removed := 0
 
@@ -934,7 +934,7 @@ func doSkyscraperRemoveGroup(solver *Solver, limits SolverLimit, step *SolveStep
 	return removed
 }
 
-func removeCandidateInGroups(solver *Solver, limits SolverLimit, step *SolveStep, candidate int, a *Cell, b *Cell) int {
+func removeCandidateInGroups(solver *Solver, limits SolveLimit, step *SolveStep, candidate int, a *Cell, b *Cell) int {
 	removed := 0
 
 	for _, group := range solver.Unsolved {
@@ -985,7 +985,7 @@ var Step2StringKite = &SolveStep{
 	Technique:      "2-String Kite",
 	FirstCost:      2800,
 	SubsequentCost: 1600,
-	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+	Logic: func(solver *Solver, limits SolveLimit, step *SolveStep) (int, bool) {
 		return 0, do2StringKite(solver, limits, step) > 0
 	},
 }
@@ -994,7 +994,7 @@ var Step2StringKite = &SolveStep{
 // Find a row and a column that have only two candidates left (the "strings").
 // One candidate from the row and one candidate from the column have to be in the same block.
 // The candidate that sees the two other cells can be eliminated.
-func do2StringKite(solver *Solver, limits SolverLimit, step *SolveStep) int {
+func do2StringKite(solver *Solver, limits SolveLimit, step *SolveStep) int {
 	size := solver.Puzzle.Kind.Size()
 	removed := 0
 	rows := getGroupCandidateDistributions(solver, GroupRow)
@@ -1041,7 +1041,7 @@ var StepEmptyRectangle = &SolveStep{
 	Technique:      "Empty Rectangle",
 	FirstCost:      2800,
 	SubsequentCost: 1600,
-	Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+	Logic: func(solver *Solver, limits SolveLimit, step *SolveStep) (int, bool) {
 		return 0, doEmptyRectangle(solver, limits, step) > 0
 	},
 }
@@ -1050,7 +1050,7 @@ var StepEmptyRectangle = &SolveStep{
 // Find a row and a column that have only two candidates left (the "strings").
 // One candidate from the row and one candidate from the column have to be in the same block.
 // The candidate that sees the two other cells can be eliminated.
-func doEmptyRectangle(solver *Solver, limits SolverLimit, step *SolveStep) int {
+func doEmptyRectangle(solver *Solver, limits SolveLimit, step *SolveStep) int {
 	removed := 0
 
 	boxTested := Bitset{}
@@ -1192,7 +1192,7 @@ func findPerpendicularPair(solver *Solver, candidate int, groupSearch int, group
 	return true
 }
 
-func removeCandidate(solver *Solver, limit SolverLimit, step *SolveStep, col int, row int, candidate int) bool {
+func removeCandidate(solver *Solver, limit SolveLimit, step *SolveStep, col int, row int, candidate int) bool {
 	inter := solver.Puzzle.Get(col, row)
 	canRemove := inter.Empty() && inter.HasCandidate(candidate)
 	if canRemove {
@@ -1238,7 +1238,7 @@ func CreateStepBasicFish(setSize int, technique string, firstCost int, subsequen
 		Technique:      technique,
 		FirstCost:      firstCost,
 		SubsequentCost: subsequentCost,
-		Logic: func(solver *Solver, limits SolverLimit, step *SolveStep) (int, bool) {
+		Logic: func(solver *Solver, limits SolveLimit, step *SolveStep) (int, bool) {
 			removed := false
 			if solver.CanContinueStep(limits, step) {
 				removed = doBasicFish(solver, limits, step, setSize) > 0
@@ -1252,7 +1252,7 @@ var StepXWing = CreateStepBasicFish(2, "X-Wing", 2800, 1600)
 var StepSwordfish = CreateStepBasicFish(3, "Swordfish", 8000, 6000)
 var StepJellyfish = CreateStepBasicFish(4, "Jellyfish", 10000, 8000)
 
-func doBasicFish(solver *Solver, limits SolverLimit, step *SolveStep, setSize int) int {
+func doBasicFish(solver *Solver, limits SolveLimit, step *SolveStep, setSize int) int {
 	removed := 0
 	removed += doBasicFishGroups(solver, limits, step, setSize, GroupRow)
 	if solver.CanContinueStep(limits, step) {
@@ -1261,7 +1261,7 @@ func doBasicFish(solver *Solver, limits SolverLimit, step *SolveStep, setSize in
 	return removed
 }
 
-func doBasicFishGroups(solver *Solver, limits SolverLimit, step *SolveStep, setSize int, groupType Group) int {
+func doBasicFishGroups(solver *Solver, limits SolveLimit, step *SolveStep, setSize int, groupType Group) int {
 	size := solver.Puzzle.Kind.Size()
 	removed := 0
 	groups := getGroupCandidateDistributions(solver, groupType)

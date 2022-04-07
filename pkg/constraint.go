@@ -81,7 +81,7 @@ func SumCell(pos Position, relative bool) ConstraintSumProvider {
 }
 
 func (c *ConstraintSum) Affects(cell *Cell) bool {
-	return containsCell(cell, c.Cells)
+	return containsCell(cell, c.Cells, nil)
 }
 
 func (c *ConstraintSum) RemoveCandidates(cell *Cell, puzzle *Puzzle, remove *Candidates) {
@@ -147,7 +147,7 @@ type ConstraintUnique struct {
 }
 
 func (c *ConstraintUnique) Affects(cell *Cell) bool {
-	return containsCell(cell, c.Cells)
+	return containsCell(cell, c.Cells, nil)
 }
 
 func (c *ConstraintUnique) RemoveCandidates(cell *Cell, puzzle *Puzzle, remove *Candidates) {
@@ -173,7 +173,7 @@ type ConstraintOrder struct {
 }
 
 func (c *ConstraintOrder) Affects(cell *Cell) bool {
-	return containsCell(cell, c.Cells)
+	return containsCell(cell, c.Cells, nil)
 }
 
 func (c *ConstraintOrder) RemoveCandidates(cell *Cell, puzzle *Puzzle, remove *Candidates) {
@@ -305,17 +305,202 @@ func (c *ConstraintMagic) RemoveCandidates(cell *Cell, puzzle *Puzzle, remove *C
 	}
 }
 
+// ==================================================
+// Constraint: Scale
+// ==================================================
+type ConstraintScalePair struct {
+	Scale  int
+	First  Position
+	Second Position
+}
+
+func (c *ConstraintScalePair) Affects(cell *Cell) bool {
+	return isSame(cell, c.First) || isSame(cell, c.Second)
+}
+
+func (c *ConstraintScalePair) RemoveCandidates(cell *Cell, puzzle *Puzzle, remove *Candidates) {
+	var other *Cell
+	if isSame(cell, c.First) {
+		other = getAbsoluteCell(puzzle, c.Second)
+	} else if isSame(cell, c.Second) {
+		other = getAbsoluteCell(puzzle, c.First)
+	}
+	if other == nil {
+		return
+	}
+	possible := other.candidates
+	if other.HasValue() {
+		possible.Clear()
+		possible.Set(other.Value, true)
+	}
+
+	available := *remove
+	for available.Count > 0 {
+		candidate := available.First()
+		available.Set(candidate, false)
+
+		up := candidate * c.Scale
+		upValid := puzzle.IsCandidate(up) && possible.Has(up)
+
+		down := candidate / c.Scale
+		downValid := down*c.Scale == candidate && puzzle.IsCandidate(down) && possible.Has(down)
+
+		if !upValid && !downValid {
+			remove.Set(candidate, false)
+		}
+	}
+}
+
+func ConstraintScalePairs(scale int, pairs [][2]Position) []ConstraintScalePair {
+	constraints := make([]ConstraintScalePair, len(pairs))
+	for pairIndex, pair := range pairs {
+		constraints[pairIndex].Scale = scale
+		constraints[pairIndex].First = pair[0]
+		constraints[pairIndex].Second = pair[1]
+	}
+	return constraints
+}
+
+// ==================================================
+// Constraint: Difference
+// ==================================================
+type ConstraintDifference struct {
+	// The minimum difference that should exist between the given cells.
+	// If the cells are in the same groups then the minimum is already technically 1
+	// since the same value can't exist in the same group. A value of 2 means all
+	// cells will need to be atleast 2 apart.
+	Min int
+	// The maximum difference that should exist between the given cells.
+	// For example if the Max is 4 and one of the cells is 2 then the other cells
+	// are constrained to 1, 2, 3, 4, 5, and 6.
+	Max int
+	// The cells which are affected by this constaint. If nil all cells in the puzzle
+	// are affected (minus what's given in Exclude).
+	Cells *[]Position
+	// The cells which are looked at by the constraint. If nil the cells involved in
+	// the logic are the Cells given.
+	Relative *[]Position
+	// The cells to exclude from being constrained when Cells is nil
+	// (meaning all cells are constrained int he puzzle).
+	Exclude *[]Position
+}
+
+func (c *ConstraintDifference) Affects(cell *Cell) bool {
+	return containsCell(cell, c.Cells, c.Exclude)
+}
+
+func (c *ConstraintDifference) RemoveCandidates(cell *Cell, puzzle *Puzzle, remove *Candidates) {
+	surrounding := Candidates{}
+	surroundingValues := Candidates{}
+
+	traverseCells(puzzle, cell, c.Cells, c.Relative, func(other *Cell, index int) {
+		if other.HasValue() {
+			surroundingValues.Set(other.Value, true)
+		} else {
+			surrounding.Or(other.candidates)
+		}
+	})
+
+	candidateMin := puzzle.MinCandidate()
+	candidateMax := puzzle.MaxCandidate()
+
+	for surroundingValues.Count > 0 {
+		candidate := surroundingValues.First()
+		surroundingValues.Set(candidate, false)
+
+		doMinMaxDifference(candidate, c.Min, c.Max, candidateMin, candidateMax, remove, false)
+	}
+
+	if surrounding.Count > 0 {
+		common := Candidates{}
+		common.Fill(candidateMax)
+
+		for surrounding.Count > 0 {
+			candidate := surrounding.First()
+			surrounding.Set(candidate, false)
+
+			unique := Candidates{}
+			doMinMaxDifference(candidate, c.Min, c.Max, candidateMin, candidateMax, &unique, true)
+			common.And(unique)
+		}
+
+		if common.Count > 0 {
+			remove.Remove(common)
+		}
+	}
+}
+
+func doMinMaxDifference(candidate int, min int, max int, candidateMin int, candidateMax int, out *Candidates, set bool) {
+	if min > 1 {
+		minMin := Max(candidate-min+1, candidateMin)
+		minMax := Min(candidate+min-1, candidateMax)
+		for c := minMin; c <= minMax; c++ {
+			out.Set(c, set)
+		}
+	}
+
+	if max > 0 {
+		maxMin := candidate - max
+		maxMax := candidate + max
+
+		for c := candidateMin; c < maxMin; c++ {
+			out.Set(c, set)
+		}
+		for c := maxMax + 1; c <= candidateMax; c++ {
+			out.Set(c, set)
+		}
+	}
+}
+
+// ==================================================
+// Constraint: Divisible
+// ==================================================
+type ConstraintDivisible struct {
+	By        int
+	Remainder int
+	Cells     []Position
+}
+
+func (c *ConstraintDivisible) Affects(cell *Cell) bool {
+	return containsCell(cell, &c.Cells, nil)
+}
+
+func (c *ConstraintDivisible) RemoveCandidates(cell *Cell, puzzle *Puzzle, remove *Candidates) {
+	cand := remove
+	for cand.Count > 0 {
+		candidate := cand.First()
+		cand.Set(candidate, false)
+
+		if candidate%c.By != c.Remainder {
+			remove.Set(candidate, false)
+		}
+	}
+}
+
+func ConstraintEven(cells []Position) ConstraintDivisible {
+	return ConstraintDivisible{
+		By:        2,
+		Remainder: 0,
+		Cells:     cells,
+	}
+}
+
+func ConstraintOdd(cells []Position) ConstraintDivisible {
+	return ConstraintDivisible{
+		By:        2,
+		Remainder: 1,
+		Cells:     cells,
+	}
+}
+
 // Functions
 
 func traverseCells(puzzle *Puzzle, cell *Cell, absolute *[]Position, relative *[]Position, traverse func(other *Cell, index int)) {
 	if relative != nil {
-		size := puzzle.Kind.Size()
 		for i := range *relative {
 			pos := (*relative)[i]
-			col := cell.Col + pos.Col
-			row := cell.Row + pos.Row
-			if col >= 0 && col < size && row >= 0 && row < size {
-				cell := puzzle.Get(col, row)
+			cell := getRelativeCell(puzzle, pos, cell)
+			if cell != nil {
 				traverse(cell, i)
 			}
 		}
@@ -323,10 +508,27 @@ func traverseCells(puzzle *Puzzle, cell *Cell, absolute *[]Position, relative *[
 	} else if absolute != nil {
 		for i := range *absolute {
 			pos := (*absolute)[i]
-			cell := puzzle.Get(pos.Col, pos.Row)
+			cell := getAbsoluteCell(puzzle, pos)
 			traverse(cell, i)
 		}
 	}
+}
+
+func isSame(cell *Cell, pos Position) bool {
+	return cell.Col == pos.Col && cell.Row == pos.Row
+}
+
+func getAbsoluteCell(puzzle *Puzzle, pos Position) *Cell {
+	return puzzle.Get(pos.Col, pos.Row)
+}
+
+func getRelativeCell(puzzle *Puzzle, pos Position, relative *Cell) *Cell {
+	col := relative.Col + pos.Col
+	row := relative.Row + pos.Row
+	if !puzzle.Contains(col, row) {
+		return nil
+	}
+	return puzzle.Get(col, row)
 }
 
 func getCells(puzzle *Puzzle, cell *Cell, absolute *[]Position, relative *[]Position) []*Cell {
@@ -344,12 +546,20 @@ func getCells(puzzle *Puzzle, cell *Cell, absolute *[]Position, relative *[]Posi
 	return cells
 }
 
-func containsCell(cell *Cell, cells *[]Position) bool {
+func containsCell(cell *Cell, cells *[]Position, exclude *[]Position) bool {
 	if cells == nil {
-		return true
+		if exclude == nil {
+			return true
+		}
+
+		return !cellExists(cell, *exclude)
 	}
-	for _, p := range *cells {
-		if p.Col == cell.Col && p.Row == cell.Row {
+	return cellExists(cell, *cells)
+}
+
+func cellExists(cell *Cell, cells []Position) bool {
+	for _, p := range cells {
+		if isSame(cell, p) {
 			return true
 		}
 	}

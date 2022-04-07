@@ -1,12 +1,12 @@
 package sudogo
 
-type ClearLimits struct {
-	SolverLimit
+type ClearLimit struct {
+	SolveLimit
 	Symmetric bool
 	MaxStates int
 }
 
-func (limits ClearLimits) Extend(extend ClearLimits) ClearLimits {
+func (limits ClearLimit) Extend(extend ClearLimit) ClearLimit {
 	out := limits
 	if extend.Symmetric && !out.Symmetric {
 		out.Symmetric = true
@@ -32,36 +32,36 @@ func (limits ClearLimits) Extend(extend ClearLimits) ClearLimits {
 	return out
 }
 
-var DifficultyBeginner = ClearLimits{
-	SolverLimit: SolverLimit{MinCost: 3600, MaxCost: 4500},
-	Symmetric:   true,
+var DifficultyBeginner = ClearLimit{
+	SolveLimit: SolveLimit{MinCost: 3600, MaxCost: 4500},
+	Symmetric:  true,
 }
-var DifficultyEasy = ClearLimits{
-	SolverLimit: SolverLimit{MinCost: 4300, MaxCost: 5500},
-	Symmetric:   true,
+var DifficultyEasy = ClearLimit{
+	SolveLimit: SolveLimit{MinCost: 4300, MaxCost: 5500},
+	Symmetric:  true,
 }
-var DifficultyMedium = ClearLimits{
-	SolverLimit: SolverLimit{MinCost: 5300, MaxCost: 6900},
-	Symmetric:   true,
+var DifficultyMedium = ClearLimit{
+	SolveLimit: SolveLimit{MinCost: 5300, MaxCost: 6900},
+	Symmetric:  true,
 }
-var DifficultyHard = ClearLimits{
-	SolverLimit: SolverLimit{MinCost: 6000, MaxCost: 7200},
-	Symmetric:   false,
+var DifficultyHard = ClearLimit{
+	SolveLimit: SolveLimit{MinCost: 6000, MaxCost: 7200},
+	Symmetric:  false,
 }
-var DifficultyTricky = ClearLimits{
-	SolverLimit: SolverLimit{MinCost: 6500, MaxCost: 9300},
-	Symmetric:   false,
+var DifficultyTricky = ClearLimit{
+	SolveLimit: SolveLimit{MinCost: 6500, MaxCost: 9300},
+	Symmetric:  false,
 }
-var DifficultyFiendish = ClearLimits{
-	SolverLimit: SolverLimit{MinCost: 8300, MaxCost: 14000},
-	Symmetric:   false,
+var DifficultyFiendish = ClearLimit{
+	SolveLimit: SolveLimit{MinCost: 8300, MaxCost: 14000},
+	Symmetric:  false,
 }
-var DifficultyDiabolical = ClearLimits{
-	SolverLimit: SolverLimit{MinCost: 11000, MaxCost: 25000},
-	Symmetric:   false,
+var DifficultyDiabolical = ClearLimit{
+	SolveLimit: SolveLimit{MinCost: 11000, MaxCost: 25000},
+	Symmetric:  false,
 }
 
-func (gen *Generator) ClearCells(puzzle *Puzzle, limits ClearLimits) (*Puzzle, int) {
+func (gen *Generator) ClearCells(puzzle *Puzzle, limits ClearLimit) (*Puzzle, int) {
 	if puzzle == nil || (limits.MaxBatches == 0 && limits.MaxCost == 0 && limits.MaxLogs == 0 && limits.MaxPlacements == 0 && limits.MaxStates == 0) {
 		return nil, 0
 	}
@@ -112,8 +112,8 @@ func (gen *Generator) ClearCells(puzzle *Puzzle, limits ClearLimits) (*Puzzle, i
 			attempts.Pop()
 		}
 
-		nextSolutions := next.GetSolutions(SolutionLimit{
-			SolverLimit:  limits.SolverLimit,
+		nextSolutions := next.GetSolutions(SolutionsLimit{
+			SolveLimit:   limits.SolveLimit,
 			MaxSolutions: 2,
 		})
 
@@ -121,7 +121,7 @@ func (gen *Generator) ClearCells(puzzle *Puzzle, limits ClearLimits) (*Puzzle, i
 			uniqueSolution := nextSolutions[0]
 			states++
 
-			if !uniqueSolution.CanContinue(limits.SolverLimit, 0) {
+			if !uniqueSolution.CanContinue(limits.SolveLimit, 0) {
 				return &next, states
 			}
 

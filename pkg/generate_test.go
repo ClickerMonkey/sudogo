@@ -27,14 +27,14 @@ func TestGenerateClear(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		clear     ClearLimits
+		clear     ClearLimit
 		symmetric bool
 		maxStates int
 	}{
 		{
 			name: "Easy",
-			clear: ClearLimits{
-				SolverLimit: SolverLimit{
+			clear: ClearLimit{
+				SolveLimit: SolveLimit{
 					MaxPlacements: 30,
 				},
 				Symmetric: true,
@@ -42,8 +42,8 @@ func TestGenerateClear(t *testing.T) {
 		},
 		{
 			name: "Medium",
-			clear: ClearLimits{
-				SolverLimit: SolverLimit{
+			clear: ClearLimit{
+				SolveLimit: SolveLimit{
 					MaxPlacements: 40,
 				},
 				Symmetric: true,
@@ -51,8 +51,8 @@ func TestGenerateClear(t *testing.T) {
 		},
 		{
 			name: "Hard",
-			clear: ClearLimits{
-				SolverLimit: SolverLimit{
+			clear: ClearLimit{
+				SolveLimit: SolveLimit{
 					MaxPlacements: 50,
 				},
 				Symmetric: true,
@@ -85,7 +85,7 @@ func TestGenerateClear(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		limits := test.clear.Extend(ClearLimits{
+		limits := test.clear.Extend(ClearLimit{
 			MaxStates: 64,
 		})
 		start := time.Now()

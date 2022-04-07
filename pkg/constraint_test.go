@@ -465,7 +465,7 @@ func Test4GivenDigits(t *testing.T) {
 	// solver.puzzle.PrintConsoleCandidates()
 
 	start := time.Now()
-	solutions := puzzle.GetSolutions(SolutionLimit{})
+	solutions := puzzle.GetSolutions(SolutionsLimit{})
 	duration := time.Since(start)
 
 	if len(solutions) != 1 {

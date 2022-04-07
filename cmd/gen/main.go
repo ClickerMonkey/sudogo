@@ -14,19 +14,19 @@ import (
 
 func main() {
 	var (
-		types = map[string]*sudogo.ClearLimits{
+		types = map[string]*sudogo.ClearLimit{
 			"beginner": &sudogo.DifficultyBeginner,
 			"easy":     &sudogo.DifficultyEasy,
 			"medium":   &sudogo.DifficultyMedium,
 			"hard": {
-				SolverLimit: sudogo.SolverLimit{
+				SolveLimit: sudogo.SolveLimit{
 					MaxPlacements: 58,
 				},
 			},
 			"custom": {},
 		}
-		chosenType   string              = "medium"
-		chosenLimits *sudogo.ClearLimits = types[chosenType]
+		chosenType   string             = "medium"
+		chosenLimits *sudogo.ClearLimit = types[chosenType]
 	)
 
 	flag.Func("type", "One of beginner, easy, medium, hard, or custom.", func(value string) error {
@@ -163,7 +163,7 @@ func handleConsoleOutput(puzzleIndex int, puzzle *sudogo.Puzzle, solution *sudog
 	if logSteps {
 		solver := puzzle.Solver()
 		solver.LogEnabled = true
-		_, solved := solver.Solve(sudogo.SolverLimit{})
+		_, solved := solver.Solve(sudogo.SolveLimit{})
 		if solved {
 			fmt.Printf("Steps for puzzle #%d:\n", puzzleIndex+1)
 			for _, log := range solver.Logs {
