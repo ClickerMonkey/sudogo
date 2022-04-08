@@ -13,11 +13,23 @@ type Generator struct {
 }
 
 func NewGenerator(kind *Kind) Generator {
-	return NewSeededGenerator(kind, time.Now().Unix())
+	return NewRandomGenerator(kind, Random())
 }
 
 func NewSeededGenerator(kind *Kind, seed int64) Generator {
-	return NewRandomGenerator(kind, rand.New(rand.NewSource(seed)))
+	return NewRandomGenerator(kind, RandomSeeded(seed))
+}
+
+func RandomSeed() int64 {
+	return time.Now().Unix()
+}
+
+func Random() *rand.Rand {
+	return RandomSeeded(time.Now().Unix())
+}
+
+func RandomSeeded(seed int64) *rand.Rand {
+	return rand.New(rand.NewSource(seed))
 }
 
 func generatorSolver(kind *Kind) Solver {

@@ -37,6 +37,13 @@
       ]
     },
     {
+      "name": "Launch rest",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/cmd/rest"
+    },
+    {
       "name": "Launch Package",
       "type": "go",
       "request": "launch",
