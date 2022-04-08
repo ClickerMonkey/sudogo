@@ -81,9 +81,23 @@ func DoGenerate(r JsonRequest[GenerateJsonRequest, None, None]) (any, int) {
 type TestBody struct {
 	X int `json:"x"`
 }
+
+func (t TestBody) Validate(v Validator) {
+	if t.X < 0 {
+		v.Add("X cannot be less than 0: %d", t.X)
+	}
+}
+
 type TestParams struct {
 	Tag string `json:"tag"`
 }
+
+func (t TestParams) Validate(v Validator) {
+	if len(t.Tag) > 10 {
+		v.Add("Tag cannot be longer than 10 characters: %s", t.Tag)
+	}
+}
+
 type TestQuery struct {
 	OrderBy []struct {
 		Field string `json:"field"`

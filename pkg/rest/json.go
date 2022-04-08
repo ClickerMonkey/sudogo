@@ -35,6 +35,18 @@ func JsonHandle(handle func(w http.ResponseWriter, r *http.Request) (any, int)) 
 	}
 }
 
+var (
+	JsonParamsParseCode       = "ERR_PARSE_PARAMS"
+	JsonParamsValidateCode    = "ERR_VALIDATE_PARAMS"
+	JsonParamsValidateMessage = "Invalid params"
+	JsonQueryParseCode        = "ERR_PARSE_QUERY"
+	JsonQueryValidateCode     = "ERR_VALIDATE_QUERY"
+	JsonQueryValidateMessage  = "Invalid query"
+	JsonBodyParseCode         = "ERR_PARSE_BODY"
+	JsonBodyValidateCode      = "ERR_VALIDATE_BODY"
+	JsonBodyValidateMessage   = "Invalid request"
+)
+
 func JsonRoute[B any, P any, Q any](handler JsonHandler[B, P, Q]) http.HandlerFunc {
 	return JsonHandle(func(w http.ResponseWriter, r *http.Request) (any, int) {
 		ctx := ValidateContext{}
@@ -47,37 +59,58 @@ func JsonRoute[B any, P any, Q any](handler JsonHandler[B, P, Q]) http.HandlerFu
 		paramsMap := ParamsToMap(r)
 		params, paramsError := ParseMap[P](paramsMap)
 		if paramsError != nil {
-			return paramsError, 400
+			return JsonErrorFromParse(paramsError, JsonParamsParseCode), 400
 		}
 		paramsValidations := GetValidations(params, ctx)
 		if len(paramsValidations) > 0 {
-			return paramsValidations, 400
+			return JsonErrorFromValidations(JsonParamsValidateMessage, JsonParamsValidateCode, paramsValidations), 400
 		}
 		request.Params = params
 
 		queryMap := QueryToMap(r)
 		query, queryError := ParseMap[Q](queryMap)
 		if queryError != nil {
-			return queryError, 400
+			return JsonErrorFromParse(queryError, JsonQueryParseCode), 400
 		}
 		queryValidations := GetValidations(query, ctx)
 		if len(queryValidations) > 0 {
-			return queryValidations, 400
+			return JsonErrorFromValidations(JsonQueryValidateMessage, JsonQueryValidateCode, queryValidations), 400
 		}
 		request.Query = query
 
 		body, bodyError := ParseBody[B](r)
 		if bodyError != nil {
-			return bodyError, 400
+			return JsonErrorFromParse(bodyError, JsonBodyParseCode), 400
 		}
 		bodyValidations := GetValidations(body, ctx)
 		if len(bodyValidations) > 0 {
-			return bodyValidations, 400
+			return JsonErrorFromValidations(JsonBodyValidateMessage, JsonBodyValidateCode, bodyValidations), 400
 		}
 		request.Body = body
 
 		return handler(request)
 	})
+}
+
+type JsonError struct {
+	Message     string       `json:"message"`
+	Code        string       `json:"code"`
+	Validations []Validation `json:"validations,omitempty"`
+}
+
+func JsonErrorFromParse(e error, code string) JsonError {
+	return JsonError{
+		Message: e.Error(),
+		Code:    code,
+	}
+}
+
+func JsonErrorFromValidations(message string, code string, validations []Validation) JsonError {
+	return JsonError{
+		Message:     message,
+		Code:        code,
+		Validations: validations,
+	}
 }
 
 func ParseMap[T any](m any) (T, error) {
