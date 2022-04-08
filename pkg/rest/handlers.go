@@ -17,17 +17,17 @@ type GenerateJsonResponse struct {
 	Puzzles []PuzzleGenerated `json:"puzzles"`
 }
 
-func DoGenerate(body GenerateJsonRequest, params None, query None) (any, int) {
+func DoGenerate(r JsonRequest[GenerateJsonRequest, None, None]) (any, int) {
 	rsp := GenerateJsonResponse{}
 
 	rsp.Seed = su.RandomSeed()
-	if body.Seed != 0 {
-		rsp.Seed = body.Seed
+	if r.Body.Seed != 0 {
+		rsp.Seed = r.Body.Seed
 	}
 
 	rand := su.RandomSeeded(rsp.Seed)
 
-	for _, puzzle := range body.Puzzles {
+	for _, puzzle := range r.Body.Puzzles {
 		kind, _, clear := puzzle.toDomain()
 
 		for i := 0; i < int(puzzle.Count); i++ {
@@ -91,6 +91,6 @@ type TestQuery struct {
 	} `json:"orderBy"`
 }
 
-func doTest(body TestBody, param TestParams, query TestQuery) (any, int) {
-	return []any{body, param, query}, 200
+func doTest(r JsonRequest[TestBody, TestParams, TestQuery]) (any, int) {
+	return []any{r.Body, r.Params, r.Query}, 200
 }

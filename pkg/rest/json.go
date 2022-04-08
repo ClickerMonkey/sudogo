@@ -12,13 +12,23 @@ import (
 
 type None struct{}
 
-type JsonHandler[B any, P any, Q any] func(body B, params P, query Q) (any, int)
+type JsonRequest[B any, P any, Q any] struct {
+	Body     B
+	Params   P
+	Query    Q
+	Request  *http.Request
+	Response http.ResponseWriter
+}
+
+type JsonHandler[B any, P any, Q any] func(r JsonRequest[B, P, Q]) (any, int)
 
 func JsonHandle(handle func(w http.ResponseWriter, r *http.Request) (any, int)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		result, status := handle(w, r)
 
-		w.Header().Set("Content-Type", "application/json")
+		if w.Header().Get("Content-Type") == "" {
+			w.Header().Set("Content-Type", "application/json")
+		}
 		w.WriteHeader(status)
 
 		json.NewEncoder(w).Encode(result)
@@ -29,13 +39,9 @@ func JsonRoute[B any, P any, Q any](handler JsonHandler[B, P, Q]) http.HandlerFu
 	return JsonHandle(func(w http.ResponseWriter, r *http.Request) (any, int) {
 		ctx := ValidateContext{}
 
-		body, bodyError := ParseBody[B](r)
-		if bodyError != nil {
-			return bodyError, 400
-		}
-		bodyValidations := GetValidations(body, ctx)
-		if len(bodyValidations) > 0 {
-			return bodyValidations, 400
+		request := JsonRequest[B, P, Q]{
+			Request:  r,
+			Response: w,
 		}
 
 		paramsMap := ParamsToMap(r)
@@ -47,6 +53,7 @@ func JsonRoute[B any, P any, Q any](handler JsonHandler[B, P, Q]) http.HandlerFu
 		if len(paramsValidations) > 0 {
 			return paramsValidations, 400
 		}
+		request.Params = params
 
 		queryMap := QueryToMap(r)
 		query, queryError := ParseMap[Q](queryMap)
@@ -57,8 +64,19 @@ func JsonRoute[B any, P any, Q any](handler JsonHandler[B, P, Q]) http.HandlerFu
 		if len(queryValidations) > 0 {
 			return queryValidations, 400
 		}
+		request.Query = query
 
-		return handler(body, params, query)
+		body, bodyError := ParseBody[B](r)
+		if bodyError != nil {
+			return bodyError, 400
+		}
+		bodyValidations := GetValidations(body, ctx)
+		if len(bodyValidations) > 0 {
+			return bodyValidations, 400
+		}
+		request.Body = body
+
+		return handler(request)
 	})
 }
 
