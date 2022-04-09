@@ -69,8 +69,8 @@ func DoGenerate(r JsonRequest[GenerateJsonRequest, None, None]) (any, int) {
 
 		for i := 0; i < int(puzzle.Count); i++ {
 			gen := su.NewRandomGenerator(kind, rand)
-			gen.Solver().LogEnabled = bool(puzzle.SolutionLogs)
-			gen.Solver().LogState = bool(puzzle.SolutionStates)
+			gen.Solver().LogEnabled = puzzle.SolutionLogs.Value
+			gen.Solver().LogState = puzzle.SolutionStates.Value
 
 			if generated, _ := gen.Generate(); generated != nil {
 				if cleared, _ := gen.ClearCells(generated, clear); cleared != nil {
@@ -80,12 +80,12 @@ func DoGenerate(r JsonRequest[GenerateJsonRequest, None, None]) (any, int) {
 						SolutionEncoded: generated.EncodedString(),
 					}
 
-					if puzzle.Solutions {
+					if puzzle.Solutions.Value {
 						solution := generated.GetAll()
 						final.Solution = &solution
 					}
 
-					if puzzle.SolutionLogs {
+					if puzzle.SolutionLogs.Value {
 						solverLogs := gen.Solver().Logs
 						logs := make([]string, 0, len(solverLogs))
 						for _, log := range solverLogs {
@@ -94,7 +94,7 @@ func DoGenerate(r JsonRequest[GenerateJsonRequest, None, None]) (any, int) {
 						final.Logs = &logs
 					}
 
-					if puzzle.Candidates {
+					if puzzle.Candidates.Value {
 						size := kind.Size()
 						cand := make([][][]int, size)
 						for r := 0; r < size; r++ {
@@ -238,6 +238,54 @@ func DoPuzzleSolveSimple(r JsonRequest[None, PuzzleSolveSimpleParams, None]) (an
 	return rsp, 200
 }
 
+type PuzzlePDFSimpleQuery struct {
+	Difficulty string     `json:"d"`
+	Candidates Trim[bool] `json:"c"`
+	Count      Trim[int]  `json:"n"`
+	Wide       Trim[int]  `json:"w"`
+	High       Trim[int]  `json:"h"`
+}
+
+func DoPuzzlePDFSimple(r JsonRequest[None, None, PuzzlePDFSimpleQuery]) (any, int) {
+	key := strings.ToLower(r.Query.Difficulty)
+	limits, exists := DifficultyMap[key]
+
+	if !exists {
+		return nil, 404
+	}
+
+	pdf := su.NewPDF()
+	pdf.Candidates = bool(r.Query.Candidates.Value)
+	pdf.PuzzlesHigh = su.Max(1, r.Query.High.Value)
+	pdf.PuzzlesWide = su.Max(1, r.Query.Wide.Value)
+
+	count := su.Max(1, r.Query.Count.Value)
+
+	for len(pdf.Puzzles) < count {
+		generator := su.Classic.Generator()
+		generated, _ := generator.Generate()
+
+		if generated == nil {
+			continue
+		}
+
+		fastLimits := limits
+		fastLimits.Fast = true
+
+		cleared, _ := generator.ClearCells(generated, fastLimits)
+
+		if cleared == nil {
+			continue
+		}
+
+		pdf.Add(cleared)
+	}
+
+	pdf.Send(r.Response, false)
+
+	return nil, -1
+}
+
 /*
 type TestBody struct {
 	X int `json:"x"`
@@ -262,7 +310,7 @@ func (t TestParams) Validate(v Validator) {
 type TestQuery struct {
 	OrderBy []struct {
 		Field string `json:"field"`
-		Desc  Bool   `json:"desc"`
+		Desc  Trim[bool]   `json:"desc"`
 	} `json:"orderBy"`
 }
 

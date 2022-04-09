@@ -4,12 +4,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"math"
-	"strconv"
 	"strings"
 
 	sudogo "github.com/ClickerMonkey/sudogo/pkg"
-	gofpdf "github.com/jung-kurt/gofpdf"
 )
 
 func main() {
@@ -99,12 +96,9 @@ func main() {
 		chosenLimits.MaxBatches = int(float64(chosenLimits.MaxBatches) * typeScale)
 	}
 
-	var pdf *gofpdf.Fpdf = nil
-
-	if *outputPdf != "" {
-		pdf = gofpdf.New("P", "mm", "A4", "")
-	}
-
+	pdfMode := *outputPdf != ""
+	pdf := sudogo.NewPDF()
+	pdf.Candidates = *candidates
 	gen := kind.Generator()
 
 	for puzzleIndex := 0; puzzleIndex < *count; puzzleIndex++ {
@@ -129,8 +123,8 @@ func main() {
 				displaySolution = nil
 			}
 
-			if pdf != nil {
-				handlePDFOutput(puzzleIndex, puzzle, displaySolution, *candidates, *logSteps, pdf)
+			if pdfMode {
+				pdf.Add(puzzle)
 			} else {
 				handleConsoleOutput(puzzleIndex, puzzle, displaySolution, *candidates, *logSteps)
 			}
@@ -139,8 +133,8 @@ func main() {
 		}
 	}
 
-	if pdf != nil {
-		pdf.OutputFileAndClose(*outputPdf)
+	if pdfMode {
+		pdf.WriteFile(*outputPdf)
 	}
 }
 
@@ -174,72 +168,4 @@ func handleConsoleOutput(puzzleIndex int, puzzle *sudogo.Puzzle, solution *sudog
 			fmt.Println("Solution steps could not be determined.")
 		}
 	}
-}
-
-func handlePDFOutput(puzzleIndex int, puzzle *sudogo.Puzzle, solution *sudogo.Puzzle, candidates bool, logSteps bool, pdf *gofpdf.Fpdf) {
-	pdf.AddPage()
-
-	size := float64(puzzle.Kind.Size())
-	boxSize := puzzle.Kind.BoxSize
-	pageW, pageH, _ := pdf.PageSize(0)
-	marginL, marginT, marginR, marginB := pdf.GetMargins()
-	innerW := pageW - marginL - marginR
-	innerH := pageH - marginT - marginB
-	cellW := innerW / size
-	cellH := innerH / size
-	cellSize := math.Min(cellW, cellH)
-	boardSize := cellSize * size
-	boardX := marginL + (innerW-boardSize)/2
-	boardY := marginT + (innerH-boardSize)/2
-	boxHeight := float64(boxSize.Height)
-	boxWidth := float64(boxSize.Width)
-	fontScale := cellSize / 21.1
-	thickLineWidth := 1.0 * fontScale
-	lineWidth := pdf.GetLineWidth()
-
-	for y := 0.0; y < size; y++ {
-		for x := 0.0; x < size; x++ {
-			cell := puzzle.Get(int(x), int(y))
-			cellValue := ""
-			if cell.HasValue() {
-				cellValue = strconv.Itoa(cell.Value)
-			}
-			pdf.SetFont("Arial", "B", 32*fontScale)
-			pdf.SetTextColor(0, 0, 0)
-			pdf.SetXY(boardX+x*cellSize, boardY+y*cellSize)
-			pdf.CellFormat(cellSize, cellSize, cellValue, "1", 0, "CM", false, 0, "")
-			if candidates && cell.Empty() {
-				cand := fmt.Sprintf("%v", cell.Candidates())
-				cand = strings.Trim(cand, "[]")
-
-				pdf.SetFont("Arial", "", 10*fontScale)
-				pdf.SetTextColor(128, 128, 128)
-				pdf.SetXY(boardX+x*cellSize, boardY+y*cellSize+thickLineWidth*2)
-				pdf.CellFormat(cellSize, cellSize, cand, "0", 0, "CT", false, 0, "")
-			}
-		}
-	}
-
-	pdf.SetLineWidth(thickLineWidth)
-	pdf.SetLineCapStyle("round")
-
-	for y := 0.0; y <= size+0.0001; y += boxHeight {
-		lineY := boardY + y*cellSize
-		pdf.Line(boardX, lineY, boardX+boardSize, lineY)
-	}
-
-	for x := 0.0; x <= size+0.0001; x += boxWidth {
-		lineX := boardX + x*cellSize
-		pdf.Line(lineX, boardY, lineX, boardY+boardSize)
-	}
-
-	if solution != nil {
-		solutionString := solution.String()
-		pdf.SetFont("Arial", "B", 10*fontScale)
-		pdf.SetTextColor(80, 80, 255)
-		pdf.SetXY(boardX, boardY+boardSize+thickLineWidth*5)
-		pdf.WriteAligned(boardSize, 12*fontScale, solutionString, "C")
-	}
-
-	pdf.SetLineWidth(lineWidth)
 }

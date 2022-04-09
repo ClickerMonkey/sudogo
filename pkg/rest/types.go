@@ -2,8 +2,6 @@ package rest
 
 import (
 	"encoding/json"
-	"strconv"
-	"strings"
 
 	su "github.com/ClickerMonkey/sudogo/pkg"
 )
@@ -45,17 +43,6 @@ func (d PuzzleDimension) Validate(v Validator) {
 	if d > 64 {
 		v.Add("cannot be greater than 64: %d", d)
 	}
-}
-
-type Bool bool
-
-func (b *Bool) UnmarshalJSON(data []byte) error {
-	asString := strings.Trim(string(data), `"`)
-	parsed, err := strconv.ParseBool(asString)
-	if err == nil {
-		*b = Bool(parsed)
-	}
-	return err
 }
 
 type Position struct {
@@ -101,14 +88,14 @@ func (c ConstraintSumValue) Validate(v Validator) {
 
 type ConstraintSumCell struct {
 	Sum         RelativePosition    `json:"sum"`
-	SumRelative Bool                `json:"sumRelative"`
+	SumRelative Trim[bool]          `json:"sumRelative"`
 	Cells       *[]Position         `json:"cells"`
 	Relative    *[]RelativePosition `json:"relative"`
 }
 
 func (p ConstraintSumCell) toDomain() su.Constraint {
 	return &su.ConstraintSum{
-		Sum:      su.SumCell(p.Sum.toDomain(), bool(p.SumRelative)),
+		Sum:      su.SumCell(p.Sum.toDomain(), p.SumRelative.Value),
 		Cells:    toDomainSlicePointer[su.Position](p.Cells),
 		Relative: toDomainSlicePointer[su.Position](p.Relative),
 	}
@@ -117,14 +104,14 @@ func (p ConstraintSumCell) toDomain() su.Constraint {
 type ConstraintUnique struct {
 	Cells    *[]Position         `json:"cells"`
 	Relative *[]RelativePosition `json:"relative"`
-	Same     Bool                `json:"same"`
+	Same     Trim[bool]          `json:"same"`
 }
 
 func (p ConstraintUnique) toDomain() su.Constraint {
 	return &su.ConstraintUnique{
 		Cells:    toDomainSlicePointer[su.Position](p.Cells),
 		Relative: toDomainSlicePointer[su.Position](p.Relative),
-		Same:     bool(p.Same),
+		Same:     p.Same.Value,
 	}
 }
 
@@ -248,12 +235,12 @@ type GenerateBase struct {
 	MaxPlacements int             `json:"maxPlacements"`
 	MaxLogs       int             `json:"maxLogs"`
 	MaxBatches    int             `json:"maxBatches"`
-	Symmetric     Bool            `json:"symmetric"`
+	Symmetric     Trim[bool]      `json:"symmetric"`
 	BoxWidth      PuzzleDimension `json:"boxWidth"`
 	BoxHeight     PuzzleDimension `json:"boxHeight"`
 	Constraints   Constraints     `json:"constraints"`
-	Candidates    Bool            `json:"candidates"`
-	Solutions     Bool            `json:"solutions"`
+	Candidates    Trim[bool]      `json:"candidates"`
+	Solutions     Trim[bool]      `json:"solutions"`
 }
 
 func (r GenerateBase) Validate(v Validator) {
@@ -273,15 +260,15 @@ func (r GenerateBase) toDomain() (*su.Kind, su.SolveLimit, su.ClearLimit) {
 
 	clear := su.ClearLimit{}
 	clear.SolveLimit = solve
-	clear.Symmetric = bool(r.Symmetric)
+	clear.Symmetric = r.Symmetric.Value
 
 	return kind, solve, clear
 }
 
 type GenerateJson struct {
 	GenerateBase
-	SolutionLogs   Bool `json:"solutionLogs"`
-	SolutionStates Bool `json:"solutionStates"`
+	SolutionLogs   Trim[bool] `json:"solutionLogs"`
+	SolutionStates Trim[bool] `json:"solutionStates"`
 }
 
 type GenerateJsonRequest struct {

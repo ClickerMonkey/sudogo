@@ -13,6 +13,12 @@ import (
 
 type None struct{}
 
+type Trim[T any] struct{ Value T }
+
+func (t *Trim[T]) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal([]byte(strings.Trim(string(data), `"`)), &t.Value)
+}
+
 type JsonRequest[B any, P any, Q any] struct {
 	Body     B
 	Params   P
@@ -38,13 +44,13 @@ func JsonHandle(handle func(w http.ResponseWriter, r *http.Request) (any, int)) 
 	return func(w http.ResponseWriter, r *http.Request) {
 		result, status := handle(w, r)
 
-		if w.Header().Get("Content-Type") == "" {
+		if status != -1 {
 			w.Header().Set("Content-Type", "application/json")
-		}
-		w.WriteHeader(status)
+			w.WriteHeader(status)
 
-		enc := json.NewEncoder(w)
-		enc.Encode(result)
+			enc := json.NewEncoder(w)
+			enc.Encode(result)
+		}
 	}
 }
 

@@ -13,6 +13,7 @@ func GetRouter() chi.Router {
 	r.Get("/solve/{id}", JsonRoute(DoPuzzleSolveSimple))
 	r.Get("/puzzle/{id}", JsonRoute(DoPuzzleGet))
 	r.Get("/puzzle", JsonRoute(DoPuzzleGenerateSimple))
+	r.Get("/pdf", JsonRoute(DoPuzzlePDFSimple))
 
 	return r
 }
