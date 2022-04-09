@@ -185,6 +185,10 @@ Puzzle.PrintCandidates()
 - [ ] Solve step: Franken Fish (http://hodoku.sourceforge.net/en/tech_fishc.php)
 - [ ] Solve step: Mutant Fish (http://hodoku.sourceforge.net/en/tech_fishc.php)
 - [ ] Solve step: Siamese Fish (http://hodoku.sourceforge.net/en/tech_fishc.php)
+- [ ] Profile to determine why it's slow
+- [ ] Simple front-end
+- [ ] Steps should be able to describe which cells were used to detect technique
+- [ ] Clearing until a number of techniques had to be used
 - [x] Solve step: Constraints
 
 ### Resources
