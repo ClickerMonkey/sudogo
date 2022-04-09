@@ -3,6 +3,7 @@ package rest
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -20,6 +21,17 @@ type JsonRequest[B any, P any, Q any] struct {
 	Response http.ResponseWriter
 }
 
+func (r JsonRequest[B, P, Q]) URL() url.URL {
+	u := *r.Request.URL
+	u.Host = r.Request.Host
+	if r.Request.TLS == nil {
+		u.Scheme = "http"
+	} else {
+		u.Scheme = "https"
+	}
+	return u
+}
+
 type JsonHandler[B any, P any, Q any] func(r JsonRequest[B, P, Q]) (any, int)
 
 func JsonHandle(handle func(w http.ResponseWriter, r *http.Request) (any, int)) http.HandlerFunc {
@@ -31,7 +43,8 @@ func JsonHandle(handle func(w http.ResponseWriter, r *http.Request) (any, int)) 
 		}
 		w.WriteHeader(status)
 
-		json.NewEncoder(w).Encode(result)
+		enc := json.NewEncoder(w)
+		enc.Encode(result)
 	}
 }
 
@@ -129,6 +142,12 @@ func ParseBody[T any](r *http.Request) (T, error) {
 	defer r.Body.Close()
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&parsed)
+	if err.Error() == "EOF" {
+		var p any = parsed
+		if _, ok := p.(None); ok {
+			return parsed, nil
+		}
+	}
 	return parsed, err
 }
 
@@ -156,12 +175,12 @@ func QueryToMap(r *http.Request) any {
 		path := pathRegex.Split(strings.TrimRight(k, "]"), -1)
 		curr := out
 		for _, node := range path {
-			curr = curr.Get(node)
+			curr = curr.get(node)
 		}
-		curr.Set(v[0])
+		curr.set(v[0])
 	}
 
-	return out.Convert()
+	return out.convert()
 }
 
 type queryNode struct {
@@ -171,7 +190,7 @@ type queryNode struct {
 	Kind  int
 }
 
-func (node *queryNode) Get(x string) *queryNode {
+func (node *queryNode) get(x string) *queryNode {
 	if i, err := strconv.Atoi(x); err == nil {
 		node.Kind = 1
 		if len(node.Arr) <= i {
@@ -198,17 +217,17 @@ func (node *queryNode) Get(x string) *queryNode {
 		return n
 	}
 }
-func (node *queryNode) Set(value any) {
+func (node *queryNode) set(value any) {
 	node.Value = value
 	node.Kind = 3
 }
-func (node *queryNode) Convert() any {
+func (node *queryNode) convert() any {
 	switch node.Kind {
 	case 1:
 		c := make([]any, len(node.Arr))
 		for i, item := range node.Arr {
 			if item != nil {
-				c[i] = item.Convert()
+				c[i] = item.convert()
 			} else {
 				c[i] = nil
 			}
@@ -217,7 +236,7 @@ func (node *queryNode) Convert() any {
 	case 2:
 		c := make(map[string]any)
 		for key, value := range node.Obj {
-			c[key] = value.Convert()
+			c[key] = value.convert()
 		}
 		return c
 	}

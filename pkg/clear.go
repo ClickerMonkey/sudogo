@@ -4,6 +4,7 @@ type ClearLimit struct {
 	SolveLimit
 	Symmetric bool
 	MaxStates int
+	Fast      bool
 }
 
 func (limits ClearLimit) Extend(extend ClearLimit) ClearLimit {
@@ -112,16 +113,29 @@ func (gen *Generator) ClearCells(puzzle *Puzzle, limits ClearLimit) (*Puzzle, in
 			attempts.Pop()
 		}
 
-		nextSolutions := next.GetSolutions(SolutionsLimit{
-			SolveLimit:   limits.SolveLimit,
-			MaxSolutions: 2,
-		})
+		var solver *Solver = nil
 
-		if len(nextSolutions) == 1 {
-			uniqueSolution := nextSolutions[0]
+		if limits.Fast {
+			nextSolver := next.Solver()
+			nextSolution, _ := nextSolver.Solve(limits.SolveLimit)
+			if nextSolution != nil && nextSolution.IsSolved() {
+				solver = &nextSolver
+			}
+		} else {
+			nextSolutions := next.GetSolutions(SolutionsLimit{
+				SolveLimit:   limits.SolveLimit,
+				MaxSolutions: 2,
+			})
+
+			if len(nextSolutions) == 1 {
+				solver = nextSolutions[0]
+			}
+		}
+
+		if solver != nil {
 			states++
 
-			if !uniqueSolution.CanContinue(limits.SolveLimit, 0) {
+			if !solver.CanContinue(limits.SolveLimit, 0) {
 				return &next, states
 			}
 

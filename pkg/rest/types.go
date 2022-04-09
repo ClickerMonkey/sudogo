@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 
@@ -286,4 +287,37 @@ type GenerateJson struct {
 type GenerateJsonRequest struct {
 	Seed    int64          `json:"seed"`
 	Puzzles []GenerateJson `json:"types"`
+}
+
+type Optional[T any] struct {
+	Value   T
+	Defined bool
+}
+
+func (o *Optional[T]) UnmarshalJSON(data []byte) error {
+	if len(data) > 0 {
+		var val T
+		if err := json.Unmarshal(data, &val); err != nil {
+			return err
+		}
+		o.Value = val
+		o.Defined = true
+	}
+	return nil
+}
+
+func (o Optional[T]) MarshalJSON() ([]byte, error) {
+	if o.Defined {
+		return json.Marshal(o.Value)
+	}
+	return []byte("null"), nil
+}
+
+func (o *Optional[T]) Set(value T) {
+	o.Value = value
+	o.Defined = true
+}
+
+func (o *Optional[T]) Unset() {
+	o.Defined = false
 }

@@ -10,7 +10,9 @@ func GetRouter() chi.Router {
 	r := chi.NewRouter()
 
 	r.Post("/generate", JsonRoute(DoGenerate))
-	r.Post("/test/{tag}", JsonRoute(doTest))
+	r.Get("/solve/{id}", JsonRoute(DoPuzzleSolveSimple))
+	r.Get("/puzzle/{id}", JsonRoute(DoPuzzleGet))
+	r.Get("/puzzle", JsonRoute(DoPuzzleGenerateSimple))
 
 	return r
 }

@@ -430,8 +430,12 @@ func (puzzle *Puzzle) GetSolutions(limit SolutionsLimit) []*Solver {
 	solutions := make([]*Solver, 0, Max(0, limit.MaxSolutions))
 	unique := map[string]bool{}
 
+	initialSolver := puzzle.Solver()
+	initialSolver.LogEnabled = limit.LogEnabled
+	initialSolver.LogState = limit.LogState
+
 	solvers := NewQueue[Solver]()
-	solvers.Offer(puzzle.Solver())
+	solvers.Offer(initialSolver)
 
 	for !solvers.Empty() {
 		solver := solvers.Poll()
@@ -447,9 +451,16 @@ func (puzzle *Puzzle) GetSolutions(limit SolutionsLimit) []*Solver {
 					newSolver := solution.Solver()
 					newSolver.LogEnabled = limit.LogEnabled
 					newSolver.LogState = limit.LogState
-					if newSolver.Set(minCell.Cell.Col, minCell.Cell.Row, candidate) {
-						solvers.Offer(newSolver)
-					}
+					newSolver.Logs = solver.Logs[:]
+					newSolver.logTemplate = solver.logTemplate
+
+					newCell := newSolver.Puzzle.Get(minCell.Cell.Col, minCell.Cell.Row)
+					newSolver.LogStep(StepBruteForce)
+					newSolver.LogBefore(newCell)
+					newSolver.SetCell(newCell, candidate)
+					newSolver.LogPlacement(newCell)
+
+					solvers.Offer(newSolver)
 				}
 			}
 		} else {

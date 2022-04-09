@@ -327,6 +327,18 @@ func (solver *Solver) Solve(limits SolveLimit) (*Puzzle, bool) {
 }
 
 // ==================================================
+// Step: Brute Force
+// ==================================================
+var StepBruteForce = &SolveStep{
+	Technique:      "Brute Force",
+	FirstCost:      0,
+	SubsequentCost: 0,
+	Logic: func(solver *Solver, limits SolveLimit, step *SolveStep) (int, bool) {
+		return 0, false
+	},
+}
+
+// ==================================================
 // Step: Naked Single
 // 		http://hodoku.sourceforge.net/en/tech_singles.php
 // ==================================================

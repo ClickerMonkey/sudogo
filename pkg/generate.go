@@ -21,11 +21,11 @@ func NewSeededGenerator(kind *Kind, seed int64) Generator {
 }
 
 func RandomSeed() int64 {
-	return time.Now().Unix()
+	return time.Now().UnixNano()
 }
 
 func Random() *rand.Rand {
-	return RandomSeeded(time.Now().Unix())
+	return RandomSeeded(RandomSeed())
 }
 
 func RandomSeeded(seed int64) *rand.Rand {
