@@ -11,20 +11,13 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type None struct{}
-
-type Trim[T any] struct{ Value T }
-
-func (t *Trim[T]) UnmarshalJSON(data []byte) error {
-	return json.Unmarshal([]byte(strings.Trim(string(data), `"`)), &t.Value)
-}
-
 type JsonRequest[B any, P any, Q any] struct {
 	Body     B
 	Params   P
 	Query    Q
 	Request  *http.Request
 	Response http.ResponseWriter
+	Validate ValidateContext
 }
 
 func (r JsonRequest[B, P, Q]) URL() url.URL {
@@ -36,6 +29,25 @@ func (r JsonRequest[B, P, Q]) URL() url.URL {
 		u.Scheme = "https"
 	}
 	return u
+}
+
+func (r JsonRequest[B, P, Q]) SendText(text string, status int) (any, int) {
+	w := r.Response
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Write([]byte(text))
+
+	return nil, -1
+}
+
+func (r JsonRequest[B, P, Q]) SendJson(data any, status int) (any, int) {
+	w := r.Response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+
+	enc := json.NewEncoder(w)
+	enc.Encode(data)
+
+	return nil, -1
 }
 
 type JsonHandler[B any, P any, Q any] func(r JsonRequest[B, P, Q]) (any, int)
@@ -55,56 +67,50 @@ func JsonHandle(handle func(w http.ResponseWriter, r *http.Request) (any, int)) 
 }
 
 var (
-	JsonParamsParseCode       = "ERR_PARSE_PARAMS"
-	JsonParamsValidateCode    = "ERR_VALIDATE_PARAMS"
-	JsonParamsValidateMessage = "Invalid params"
-	JsonQueryParseCode        = "ERR_PARSE_QUERY"
-	JsonQueryValidateCode     = "ERR_VALIDATE_QUERY"
-	JsonQueryValidateMessage  = "Invalid query"
-	JsonBodyParseCode         = "ERR_PARSE_BODY"
-	JsonBodyValidateCode      = "ERR_VALIDATE_BODY"
-	JsonBodyValidateMessage   = "Invalid request"
+	JsonParamsParseCode = "ERR_PARSE_PARAMS"
+	JsonQueryParseCode  = "ERR_PARSE_QUERY"
+	JsonBodyParseCode   = "ERR_PARSE_BODY"
+	JsonValidateCode    = "ERR_VALIDATE_REQUEST"
+	JsonValidateMessage = "Invalid request"
 )
 
 func JsonRoute[B any, P any, Q any](handler JsonHandler[B, P, Q]) http.HandlerFunc {
 	return JsonHandle(func(w http.ResponseWriter, r *http.Request) (any, int) {
-		ctx := ValidateContext{}
+
+		validator := NewValidator()
 
 		request := JsonRequest[B, P, Q]{
 			Request:  r,
 			Response: w,
+			Validate: validator.Context,
 		}
 
 		paramsMap := ParamsToMap(r)
 		params, paramsError := ParseMap[P](paramsMap)
 		if paramsError != nil {
-			return JsonErrorFromParse(paramsError, JsonParamsParseCode), 400
+			return JsonErrorFromParse(paramsError, JsonParamsParseCode), http.StatusBadRequest
 		}
-		paramsValidations := GetValidations(params, ctx)
-		if len(paramsValidations) > 0 {
-			return JsonErrorFromValidations(JsonParamsValidateMessage, JsonParamsValidateCode, paramsValidations), 400
-		}
-		request.Params = params
+		validator.Field("params").Validate(&params)
 
 		queryMap := QueryToMap(r)
 		query, queryError := ParseMap[Q](queryMap)
 		if queryError != nil {
-			return JsonErrorFromParse(queryError, JsonQueryParseCode), 400
+			return JsonErrorFromParse(queryError, JsonQueryParseCode), http.StatusBadRequest
 		}
-		queryValidations := GetValidations(query, ctx)
-		if len(queryValidations) > 0 {
-			return JsonErrorFromValidations(JsonQueryValidateMessage, JsonQueryValidateCode, queryValidations), 400
-		}
-		request.Query = query
+		validator.Field("query").Validate(&query)
 
 		body, bodyError := ParseBody[B](r)
 		if bodyError != nil {
-			return JsonErrorFromParse(bodyError, JsonBodyParseCode), 400
+			return JsonErrorFromParse(bodyError, JsonBodyParseCode), http.StatusBadRequest
 		}
-		bodyValidations := GetValidations(body, ctx)
-		if len(bodyValidations) > 0 {
-			return JsonErrorFromValidations(JsonBodyValidateMessage, JsonBodyValidateCode, bodyValidations), 400
+		validator.Field("body").Validate(&body)
+
+		if !validator.IsValid() {
+			return JsonErrorFromValidations(JsonValidateMessage, JsonValidateCode, *validator.Validations), http.StatusBadRequest
 		}
+
+		request.Params = params
+		request.Query = query
 		request.Body = body
 
 		return handler(request)
@@ -247,4 +253,45 @@ func (node *queryNode) convert() any {
 		return c
 	}
 	return node.Value
+}
+
+type None struct{}
+
+type Trim[T any] struct{ Value T }
+
+func (t *Trim[T]) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal([]byte(strings.Trim(string(data), `"`)), &t.Value)
+}
+
+type Optional[T any] struct {
+	Value   T
+	Defined bool
+}
+
+func (o *Optional[T]) UnmarshalJSON(data []byte) error {
+	if len(data) > 0 {
+		var val T
+		if err := json.Unmarshal(data, &val); err != nil {
+			return err
+		}
+		o.Value = val
+		o.Defined = true
+	}
+	return nil
+}
+
+func (o Optional[T]) MarshalJSON() ([]byte, error) {
+	if o.Defined {
+		return json.Marshal(o.Value)
+	}
+	return []byte("null"), nil
+}
+
+func (o *Optional[T]) Set(value T) {
+	o.Value = value
+	o.Defined = true
+}
+
+func (o *Optional[T]) Unset() {
+	o.Defined = false
 }

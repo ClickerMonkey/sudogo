@@ -154,6 +154,21 @@ func (puzzle *Puzzle) GetAll() [][]int {
 	return all
 }
 
+func (puzzle *Puzzle) GetCandidates() [][][]int {
+	s := puzzle.Kind.Size()
+	all := make([][][]int, s)
+
+	for y := 0; y < s; y++ {
+		all[y] = make([][]int, s)
+	}
+
+	for _, c := range puzzle.Cells {
+		all[c.Row][c.Col] = c.Candidates()
+	}
+
+	return all
+}
+
 func (puzzle *Puzzle) GetRow(rowIndex int) []int {
 	row := make([]int, puzzle.Kind.Size())
 

@@ -12,7 +12,7 @@ import (
 )
 
 type PuzzlePDF struct {
-	Puzzles          []*Puzzle
+	Puzzles          []PuzzlePDFItem
 	PuzzlesWide      int
 	PuzzlesHigh      int
 	PuzzleSpacing    float64
@@ -23,7 +23,6 @@ type PuzzlePDF struct {
 	Landscape        bool
 	PageSize         string
 	Font             string
-	Candidates       bool
 	ValueFontColor   Color
 	ValueBackColor   Color
 	ValueFontScale   float64
@@ -33,6 +32,11 @@ type PuzzlePDF struct {
 	BorderThickWidth float64
 	BorderThinColor  Color
 	BorderThinWidth  float64
+}
+
+type PuzzlePDFItem struct {
+	Puzzle     *Puzzle
+	Candidates bool
 }
 
 type Color struct {
@@ -77,8 +81,11 @@ func NewPDF() PuzzlePDF {
 	}
 }
 
-func (pdf *PuzzlePDF) Add(p *Puzzle) {
-	pdf.Puzzles = append(pdf.Puzzles, p)
+func (pdf *PuzzlePDF) Add(puzzle *Puzzle, candidates bool) {
+	pdf.Puzzles = append(pdf.Puzzles, PuzzlePDFItem{
+		Puzzle:     puzzle,
+		Candidates: candidates,
+	})
 }
 
 func (pdf *PuzzlePDF) orientation() string {
@@ -101,19 +108,23 @@ func (pdf *PuzzlePDF) Write(writer io.Writer, direct bool) {
 	} else {
 		buf := bytes.Buffer{}
 		f.Output(&buf)
-		buf.WriteTo(writer)
+		writer.Write(buf.Bytes())
 	}
 	f.Close()
 }
 
-func (pdf *PuzzlePDF) Send(w http.ResponseWriter, direct bool) {
+func (pdf *PuzzlePDF) Send(w http.ResponseWriter, direct bool) (any, int) {
 	w.Header().Set("Content-Type", "application/pdf")
 	pdf.Write(w, direct)
+
+	return nil, -1
 }
 
-func (pdf *PuzzlePDF) Download(w http.ResponseWriter, filename string, direct bool) {
+func (pdf *PuzzlePDF) Download(w http.ResponseWriter, filename string, direct bool) (any, int) {
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
 	pdf.Send(w, direct)
+
+	return nil, -1
 }
 
 func (pdf *PuzzlePDF) Generate() *gofpdf.Fpdf {
@@ -136,7 +147,8 @@ func (pdf *PuzzlePDF) Generate() *gofpdf.Fpdf {
 	offsetY := pdf.MarginTop + (spaceH-(puzzleSize*countH+spacingH))/2
 	perPage := pdf.PuzzlesWide * pdf.PuzzlesHigh
 
-	for i, puzzle := range pdf.Puzzles {
+	for i, item := range pdf.Puzzles {
+		puzzle := item.Puzzle
 		pageIndex := i % perPage
 		size := puzzle.Kind.Size()
 		sizef := float64(size)
@@ -171,9 +183,10 @@ func (pdf *PuzzlePDF) Generate() *gofpdf.Fpdf {
 					p.SetTextColor(pdf.ValueFontColor.R, pdf.ValueFontColor.G, pdf.ValueFontColor.B)
 					p.CellFormat(cellSize, cellSize, cellValue, "1", 0, "CM", fill, 0, "")
 				} else {
+					p.SetFont(pdf.Font, "", fontSize)
 					p.CellFormat(cellSize, cellSize, "", "1", 0, "CM", false, 0, "")
 
-					if pdf.Candidates {
+					if item.Candidates {
 						cand := fmt.Sprintf("%v", cell.Candidates())
 						cand = strings.Trim(cand, "[]")
 

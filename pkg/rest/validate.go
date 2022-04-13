@@ -21,7 +21,14 @@ type ValidateContext map[string]any
 type Validator struct {
 	Path        []string
 	Validations *[]Validation
-	Context     *ValidateContext
+	Context     ValidateContext
+}
+
+func NewValidator() Validator {
+	return Validator{
+		Validations: &[]Validation{},
+		Context:     ValidateContext{},
+	}
 }
 
 func (v Validator) Item(index int) Validator {
@@ -50,15 +57,14 @@ func (v *Validator) AddField(field string, format string, args ...any) {
 	})
 }
 
-func GetValidations(value any, ctx ValidateContext) []Validation {
-	validator := Validator{
-		Validations: &[]Validation{},
-		Context:     &ValidateContext{},
-	}
+func (v Validator) Validate(value any) {
 	reflectValue := reflect.ValueOf(value)
 	validateFuncs := GetValidators(reflectValue.Type())
-	doFuncsValidate(validateFuncs, reflectValue, validator)
-	return *validator.Validations
+	doFuncsValidate(validateFuncs, reflectValue, v)
+}
+
+func (v Validator) IsValid() bool {
+	return len(*v.Validations) == 0
 }
 
 type ValidateFunc func(value reflect.Value, validator Validator)
@@ -69,8 +75,9 @@ var (
 )
 
 func doCanValidate(value reflect.Value, validator Validator) {
-	can := value.Interface().(CanValidate)
-	can.Validate(validator)
+	if can, ok := value.Interface().(CanValidate); ok {
+		can.Validate(validator)
+	}
 }
 
 func doFuncsValidate(funcs []ValidateFunc, value reflect.Value, validator Validator) {
@@ -80,6 +87,10 @@ func doFuncsValidate(funcs []ValidateFunc, value reflect.Value, validator Valida
 }
 
 func doPointerValidate(funcs []ValidateFunc) ValidateFunc {
+	if len(funcs) == 0 {
+		return nil
+	}
+
 	return func(value reflect.Value, validator Validator) {
 		if !value.IsNil() {
 			doFuncsValidate(funcs, value.Elem(), validator)
@@ -88,6 +99,10 @@ func doPointerValidate(funcs []ValidateFunc) ValidateFunc {
 }
 
 func doInterfaceValidate(funcs []ValidateFunc) ValidateFunc {
+	if len(funcs) == 0 {
+		return nil
+	}
+
 	return func(value reflect.Value, validator Validator) {
 		doFuncsValidate(funcs, value.Elem(), validator)
 	}
@@ -101,6 +116,10 @@ func doFieldValidate(parent reflect.Type, fieldIndex int) ValidateFunc {
 		fieldName = field.Name
 	}
 
+	if len(funcs) == 0 {
+		return nil
+	}
+
 	return func(value reflect.Value, validator Validator) {
 		fieldValue := value.Field(fieldIndex)
 		if field.Anonymous {
@@ -112,6 +131,10 @@ func doFieldValidate(parent reflect.Type, fieldIndex int) ValidateFunc {
 }
 
 func doSliceValidate(funcs []ValidateFunc) ValidateFunc {
+	if len(funcs) == 0 {
+		return nil
+	}
+
 	return func(value reflect.Value, validator Validator) {
 		for i := 0; i < value.Len(); i++ {
 			doFuncsValidate(funcs, value.Index(i), validator.Item(i))
@@ -120,6 +143,10 @@ func doSliceValidate(funcs []ValidateFunc) ValidateFunc {
 }
 
 func doMapValidate(funcs []ValidateFunc) ValidateFunc {
+	if len(funcs) == 0 {
+		return nil
+	}
+
 	return func(value reflect.Value, validator Validator) {
 		iter := value.MapRange()
 		for iter.Next() {
@@ -132,7 +159,9 @@ func doMapValidate(funcs []ValidateFunc) ValidateFunc {
 }
 
 func AddValidator(typ reflect.Type, f ValidateFunc) {
-	ValidatorMap[typ] = append(ValidatorMap[typ], f)
+	if f != nil {
+		ValidatorMap[typ] = append(ValidatorMap[typ], f)
+	}
 }
 
 func GetValidators(typ reflect.Type) []ValidateFunc {

@@ -98,7 +98,6 @@ func main() {
 
 	pdfMode := *outputPdf != ""
 	pdf := sudogo.NewPDF()
-	pdf.Candidates = *candidates
 	gen := kind.Generator()
 
 	for puzzleIndex := 0; puzzleIndex < *count; puzzleIndex++ {
@@ -124,7 +123,7 @@ func main() {
 			}
 
 			if pdfMode {
-				pdf.Add(puzzle)
+				pdf.Add(puzzle, *candidates)
 			} else {
 				handleConsoleOutput(puzzleIndex, puzzle, displaySolution, *candidates, *logSteps)
 			}

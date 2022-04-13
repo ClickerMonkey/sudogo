@@ -1,7 +1,7 @@
 package rest
 
 import (
-	"encoding/json"
+	"strings"
 
 	su "github.com/ClickerMonkey/sudogo/pkg"
 )
@@ -9,7 +9,7 @@ import (
 type Index int
 
 func (d Index) Validate(v Validator) {
-	if kind, ok := (*v.Context)["Kind"].(*su.Kind); ok {
+	if kind, ok := v.Context["Kind"].(*su.Kind); ok {
 		s := Index(kind.Size())
 		if d < 0 {
 			v.Add("Cannot be less than 0: %d", d)
@@ -23,7 +23,7 @@ func (d Index) Validate(v Validator) {
 type RelativeIndex int
 
 func (d RelativeIndex) Validate(v Validator) {
-	if kind, ok := (*v.Context)["Kind"].(*su.Kind); ok {
+	if kind, ok := v.Context["Kind"].(*su.Kind); ok {
 		s := RelativeIndex(kind.Size())
 		if d <= -s {
 			v.Add("Cannot be less than %d: %d", -s, d)
@@ -228,83 +228,208 @@ func (g GenerateCount) Validate(v Validator) {
 	}
 }
 
-type GenerateBase struct {
-	Count         GenerateCount   `json:"count"`
-	MinCost       int             `json:"minCost"`
-	MaxCost       int             `json:"maxCost"`
-	MaxPlacements int             `json:"maxPlacements"`
-	MaxLogs       int             `json:"maxLogs"`
-	MaxBatches    int             `json:"maxBatches"`
-	Symmetric     Trim[bool]      `json:"symmetric"`
-	BoxWidth      PuzzleDimension `json:"boxWidth"`
-	BoxHeight     PuzzleDimension `json:"boxHeight"`
-	Constraints   Constraints     `json:"constraints"`
-	Candidates    Trim[bool]      `json:"candidates"`
-	Solutions     Trim[bool]      `json:"solutions"`
+type GenerateSeed int64
+
+func (g *GenerateSeed) Validate(v Validator) {
+	seed, seedExists := v.Context["Seed"].(int64)
+	if *g == 0 {
+		if seedExists {
+			*g = GenerateSeed(seed)
+		} else {
+			*g = GenerateSeed(su.RandomSeed())
+		}
+	}
+	if !seedExists {
+		v.Context["Seed"] = seed
+	}
 }
 
-func (r GenerateBase) Validate(v Validator) {
-	(*v.Context)["Kind"] = su.NewKind(int(r.BoxWidth), int(r.BoxHeight))
+var DifficultyMap = map[string]su.ClearLimit{
+	"":           su.DifficultyMedium,
+	"beginner":   su.DifficultyBeginner,
+	"easy":       su.DifficultyEasy,
+	"medium":     su.DifficultyMedium,
+	"hard":       su.DifficultyHard,
+	"tricky":     su.DifficultyTricky,
+	"diabolical": su.DifficultyDiabolical,
+	"fiendish":   su.DifficultyFiendish,
 }
 
-func (r GenerateBase) toDomain() (*su.Kind, su.SolveLimit, su.ClearLimit) {
-	kind := su.NewKind(int(r.BoxWidth), int(r.BoxHeight))
+type GenerateKind struct {
+	Count          Trim[GenerateCount]   `json:"count"`
+	Seed           Trim[GenerateSeed]    `json:"seed"`
+	Difficulty     string                `json:"difficulty"`
+	MinCost        Trim[int]             `json:"minCost"`
+	MaxCost        Trim[int]             `json:"maxCost"`
+	MaxPlacements  Trim[int]             `json:"maxPlacements"`
+	MaxSteps       Trim[int]             `json:"maxSteps"`
+	MaxBatches     Trim[int]             `json:"maxBatches"`
+	Symmetric      Trim[bool]            `json:"symmetric"`
+	BoxWidth       Trim[PuzzleDimension] `json:"boxWidth"`
+	BoxHeight      Trim[PuzzleDimension] `json:"boxHeight"`
+	Constraints    Constraints           `json:"constraints"`
+	Candidates     Trim[bool]            `json:"candidates"`
+	Solutions      Trim[bool]            `json:"solutions"`
+	SolutionSteps  Trim[bool]            `json:"solutionSteps"`
+	SolutionStates Trim[bool]            `json:"solutionStates"`
+}
+
+func (r *GenerateKind) Validate(v Validator) {
+	if r.BoxWidth.Value == 0 {
+		r.BoxWidth.Value = 3
+	}
+	if r.BoxHeight.Value == 0 {
+		r.BoxHeight.Value = 3
+	}
+	if r.Count.Value == 0 {
+		r.Count.Value = 1
+	}
+
+	v.Context["Kind"] = su.NewKind(int(r.BoxWidth.Value), int(r.BoxHeight.Value))
+}
+
+func (r GenerateKind) toDomain() (*su.Kind, su.ClearLimit) {
+	boxWidth := su.Max(1, int(r.BoxWidth.Value))
+	boxHeight := su.Max(1, int(r.BoxHeight.Value))
+	kind := su.NewKind(boxWidth, boxHeight)
 	kind.Constraints = r.Constraints.toDomain()
 
-	solve := su.SolveLimit{}
-	solve.MaxBatches = r.MaxBatches
-	solve.MaxCost = r.MaxCost
-	solve.MinCost = r.MinCost
-	solve.MaxLogs = r.MaxLogs
-	solve.MaxPlacements = r.MaxPlacements
-
 	clear := su.ClearLimit{}
-	clear.SolveLimit = solve
-	clear.Symmetric = r.Symmetric.Value
 
-	return kind, solve, clear
-}
-
-type GenerateJson struct {
-	GenerateBase
-	SolutionLogs   Trim[bool] `json:"solutionLogs"`
-	SolutionStates Trim[bool] `json:"solutionStates"`
-}
-
-type GenerateJsonRequest struct {
-	Seed    int64          `json:"seed"`
-	Puzzles []GenerateJson `json:"types"`
-}
-
-type Optional[T any] struct {
-	Value   T
-	Defined bool
-}
-
-func (o *Optional[T]) UnmarshalJSON(data []byte) error {
-	if len(data) > 0 {
-		var val T
-		if err := json.Unmarshal(data, &val); err != nil {
-			return err
-		}
-		o.Value = val
-		o.Defined = true
+	if d, ok := DifficultyMap[r.Difficulty]; ok {
+		clear = d
 	}
-	return nil
-}
-
-func (o Optional[T]) MarshalJSON() ([]byte, error) {
-	if o.Defined {
-		return json.Marshal(o.Value)
+	if r.Symmetric.Value {
+		clear.Symmetric = r.Symmetric.Value
 	}
-	return []byte("null"), nil
+	if r.MaxBatches.Value != 0 {
+		clear.SolveLimit.MaxBatches = r.MaxBatches.Value
+	} else if r.MaxBatches.Value < 0 {
+		clear.SolveLimit.MaxBatches = 0
+	}
+	if r.MaxCost.Value != 0 {
+		clear.SolveLimit.MaxCost = r.MaxCost.Value
+	} else if r.MaxCost.Value < 0 {
+		clear.SolveLimit.MaxCost = 0
+	}
+	if r.MinCost.Value != 0 {
+		clear.SolveLimit.MinCost = r.MinCost.Value
+	} else if r.MinCost.Value < 0 {
+		clear.SolveLimit.MinCost = 0
+	}
+	if r.MaxSteps.Value != 0 {
+		clear.SolveLimit.MaxLogs = r.MaxSteps.Value
+	} else if r.MaxSteps.Value < 0 {
+		clear.SolveLimit.MaxLogs = 0
+	}
+	if r.MaxPlacements.Value != 0 {
+		clear.SolveLimit.MaxPlacements = r.MaxPlacements.Value
+	} else if r.MaxPlacements.Value < 0 {
+		clear.SolveLimit.MaxPlacements = 0
+	}
+
+	return kind, clear
 }
 
-func (o *Optional[T]) Set(value T) {
-	o.Value = value
-	o.Defined = true
+type GenerateRequest struct {
+	Seed  GenerateSeed   `json:"seed"`
+	Kinds []GenerateKind `json:"kinds"`
 }
 
-func (o *Optional[T]) Unset() {
-	o.Defined = false
+func (r GenerateRequest) Validate(v Validator) {
+	if len(r.Kinds) == 0 {
+		v.AddField("kinds", "Kinds cannot be empty.")
+	}
+}
+
+type Format string
+
+var (
+	FormatText Format = "text"
+	FormatPDF  Format = "pdf"
+	FormatJson Format = "json"
+)
+
+type FormatParam struct {
+	Format Format `json:"format"`
+}
+
+func (f FormatParam) Validate(v Validator) {
+	format := strings.ToLower(string(f.Format))
+	switch format {
+	case "text", "json", "pdf":
+		f.Format = Format(format)
+	default:
+		v.AddField("format", "Invalid format: %s; Only txt, json, or pdf are supported.", format)
+	}
+}
+
+type IDParam struct {
+	ID string `json:"id"`
+}
+
+func (p IDParam) Validate(v Validator) {
+	parsed := su.FromString(p.ID)
+	if parsed == nil {
+		parsed = su.FromEncoded(p.ID)
+	}
+	if parsed == nil {
+		v.AddField("ID", "invalid puzzle identifier")
+	}
+
+	v.Context["Puzzle"] = parsed
+}
+
+type GeneratedPuzzle struct {
+	Difficulty string            `json:"difficulty,omitempty"`
+	Puzzle     PuzzleData        `json:"puzzle"`
+	Duration   string            `json:"duration"`
+	Solution   *PuzzleData       `json:"solution,omitempty"`
+	Steps      []PuzzleSolveStep `json:"steps,omitempty"`
+
+	Solver *su.Solver `json:"-"`
+}
+
+type PuzzleData struct {
+	BoxWidth   int       `json:"boxWidth,omitempty"`
+	BoxHeight  int       `json:"boxHeight,omitempty"`
+	Values     [][]int   `json:"values"`
+	Candidates [][][]int `json:"candidates,omitempty"`
+	Encoded    string    `json:"encoded,omitempty"`
+	State      string    `json:"state,omitempty"`
+
+	Puzzle *su.Puzzle `json:"-"`
+}
+
+type PuzzleSolveStep struct {
+	Technique         string      `json:"technique"`
+	Index             int         `json:"index"`
+	Batch             int         `json:"batch"`
+	Cost              int         `json:"cost"`
+	Placement         bool        `json:"placement"`
+	Row               int         `json:"row"`
+	Col               int         `json:"col"`
+	Before            int         `json:"before"`
+	BeforeCandidates  []int       `json:"beforeCandidates"`
+	After             int         `json:"after"`
+	AfterCandidates   []int       `json:"afterCandidates"`
+	RunningCost       int         `json:"runningCost"`
+	RunningPlacements int         `json:"runningPlacements"`
+	State             *PuzzleData `json:"state,omitempty"`
+
+	Log su.SolverLog `json:"-"`
+}
+
+type OptionsPDF struct {
+	PuzzlesWide int `json:"puzzlesWide"`
+	PuzzlesHigh int `json:"puzzlesHigh"`
+}
+
+func (o OptionsPDF) Validate(v Validator) {
+	if o.PuzzlesWide < 0 || o.PuzzlesWide > 3 {
+		v.AddField("puzzlesWide", "Puzzles wide must be between 1 and 3.")
+	}
+	if o.PuzzlesHigh < 0 || o.PuzzlesHigh > 4 {
+		v.AddField("puzzlesHigh", "Puzzles high must be between 1 and 4.")
+	}
 }

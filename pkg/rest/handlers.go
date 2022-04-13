@@ -1,45 +1,21 @@
 package rest
 
 import (
+	"fmt"
+	"math/rand"
+	"net/http"
 	"strings"
 	"time"
 
 	su "github.com/ClickerMonkey/sudogo/pkg"
 )
 
-type PuzzleSolveLog struct {
-	Step              string `json:"step"`
-	Index             int    `json:"index"`
-	Batch             int    `json:"batch"`
-	Cost              int    `json:"cost"`
-	Placement         bool   `json:"placement"`
-	Row               int    `json:"row"`
-	Col               int    `json:"col"`
-	Before            int    `json:"before"`
-	BeforeCandidates  []int  `json:"beforeCandidates"`
-	After             int    `json:"after"`
-	AfterCandidates   []int  `json:"afterCandidates"`
-	RunningCost       int    `json:"runningCost"`
-	RunningPlacements int    `json:"runningPlacements"`
+type PuzzleParams struct {
+	FormatParam
+	IDParam
 }
 
-func NewPuzzleSolveLog(log su.SolverLog) PuzzleSolveLog {
-	return PuzzleSolveLog{
-		Step:              log.Step.Technique,
-		Index:             log.Index,
-		Batch:             log.Batch,
-		Cost:              log.Cost,
-		Placement:         log.Placement,
-		Row:               log.Before.Row,
-		Col:               log.Before.Col,
-		Before:            log.Before.Value,
-		BeforeCandidates:  log.Before.Candidates(),
-		After:             log.After.Value,
-		AfterCandidates:   log.After.Candidates(),
-		RunningCost:       log.RunningCost,
-		RunningPlacements: log.RunningPlacements,
-	}
-}
+/*
 
 type PuzzleGenerated struct {
 	Values          [][]int    `json:"values"`
@@ -54,17 +30,17 @@ type GenerateJsonResponse struct {
 	Puzzles []PuzzleGenerated `json:"puzzles"`
 }
 
-func DoGenerate(r JsonRequest[GenerateJsonRequest, None, None]) (any, int) {
+func DoGenerate(r JsonRequest[GenerateRequest, None, None]) (any, int) {
 	rsp := GenerateJsonResponse{}
 
 	rsp.Seed = su.RandomSeed()
 	if r.Body.Seed != 0 {
-		rsp.Seed = r.Body.Seed
+		rsp.Seed = int64(r.Body.Seed)
 	}
 
 	rand := su.RandomSeeded(rsp.Seed)
 
-	for _, puzzle := range r.Body.Puzzles {
+	for _, puzzle := range r.Body.Kinds {
 		kind, _, clear := puzzle.toDomain()
 
 		for i := 0; i < int(puzzle.Count); i++ {
@@ -195,11 +171,11 @@ type PuzzleSolveSimpleParams struct {
 }
 
 type PuzzleSolveSimpleResponse struct {
-	Solution      [][]int          `json:"solution"`
-	SolutionCount int              `json:"solutionCount"`
-	Duration      string           `json:"duration"`
-	Cost          int              `json:"cost"`
-	Steps         []PuzzleSolveLog `json:"steps"`
+	Solution      [][]int           `json:"solution"`
+	SolutionCount int               `json:"solutionCount"`
+	Duration      string            `json:"duration"`
+	Cost          int               `json:"cost"`
+	Steps         []PuzzleSolveStep `json:"steps"`
 }
 
 func DoPuzzleSolveSimple(r JsonRequest[None, PuzzleSolveSimpleParams, None]) (any, int) {
@@ -229,10 +205,10 @@ func DoPuzzleSolveSimple(r JsonRequest[None, PuzzleSolveSimpleParams, None]) (an
 	rsp.SolutionCount = len(solutions)
 	rsp.Duration = duration.String()
 	rsp.Cost = first.GetLastLog().RunningCost
-	rsp.Steps = make([]PuzzleSolveLog, 0, len(first.Logs))
+	rsp.Steps = make([]PuzzleSolveStep, 0, len(first.Logs))
 
 	for _, log := range first.Logs {
-		rsp.Steps = append(rsp.Steps, NewPuzzleSolveLog(log))
+		rsp.Steps = append(rsp.Steps, NewPuzzleSolveStep(log))
 	}
 
 	return rsp, 200
@@ -285,36 +261,368 @@ func DoPuzzlePDFSimple(r JsonRequest[None, None, PuzzlePDFSimpleQuery]) (any, in
 
 	return nil, -1
 }
-
-/*
-type TestBody struct {
-	X int `json:"x"`
-}
-
-func (t TestBody) Validate(v Validator) {
-	if t.X < 0 {
-		v.Add("X cannot be less than 0: %d", t.X)
-	}
-}
-
-type TestParams struct {
-	Tag string `json:"tag"`
-}
-
-func (t TestParams) Validate(v Validator) {
-	if len(t.Tag) > 10 {
-		v.Add("Tag cannot be longer than 10 characters: %s", t.Tag)
-	}
-}
-
-type TestQuery struct {
-	OrderBy []struct {
-		Field string `json:"field"`
-		Desc  Trim[bool]   `json:"desc"`
-	} `json:"orderBy"`
-}
-
-func doTest(r JsonRequest[TestBody, TestParams, TestQuery]) (any, int) {
-	return []any{r.Body, r.Params, r.Query}, 200
-}
 */
+
+// =====================================================
+// GET /puzzle/{format}/{id}
+// =====================================================
+
+type PuzzleFormatSingleQuery struct {
+	Candidates Trim[bool] `json:"candidates"`
+}
+
+type PuzzleFormatSingleJson struct {
+	BoxWidth   int       `json:"boxWidth"`
+	BoxHeight  int       `json:"boxHeight"`
+	Puzzle     [][]int   `json:"puzzle"`
+	Candidates [][][]int `json:"candidates,omitempty"`
+}
+
+func DoPuzzleFormatSingle(r JsonRequest[None, PuzzleParams, PuzzleFormatSingleQuery]) (any, int) {
+	puzzle, puzzleExists := r.Validate["Puzzle"].(*su.Puzzle)
+
+	if !puzzleExists {
+		return nil, http.StatusNotFound
+	}
+
+	switch r.Params.Format {
+	case FormatJson:
+		rsp := PuzzleFormatSingleJson{}
+		rsp.Puzzle = puzzle.GetAll()
+		rsp.BoxWidth = puzzle.Kind.BoxSize.Width
+		rsp.BoxHeight = puzzle.Kind.BoxSize.Height
+		if r.Query.Candidates.Value {
+			rsp.Candidates = puzzle.GetCandidates()
+		}
+
+		return rsp, http.StatusOK
+
+	case FormatText:
+		text := ""
+		if r.Query.Candidates.Value {
+			text = puzzle.ToConsoleCandidatesString()
+		} else {
+			text = puzzle.ToConsoleString()
+		}
+
+		return r.SendText(text, http.StatusOK)
+
+	case FormatPDF:
+		pdf := su.NewPDF()
+		pdf.Add(puzzle, r.Query.Candidates.Value)
+
+		return pdf.Send(r.Response, true)
+	}
+
+	return nil, http.StatusOK
+}
+
+// =====================================================
+// GET /solve/{format}/{id}
+// =====================================================
+
+type SolveFormatSingleJson struct {
+	BoxWidth  int               `json:"boxWidth"`
+	BoxHeight int               `json:"boxHeight"`
+	Puzzle    [][]int           `json:"puzzle"`
+	Solution  [][]int           `json:"solution"`
+	Unique    bool              `json:"unique"`
+	Duration  string            `json:"duration"`
+	Cost      int               `json:"cost"`
+	Steps     []PuzzleSolveStep `json:"steps,omitempty"`
+}
+
+type SolveFormatSingleQuery struct {
+	Steps  Trim[bool] `json:"steps"`
+	States Trim[bool] `json:"stepStates"`
+}
+
+func DoSolveFormatSingle(r JsonRequest[None, PuzzleParams, SolveFormatSingleQuery]) (any, int) {
+	puzzle, puzzleExists := r.Validate["Puzzle"].(*su.Puzzle)
+
+	if !puzzleExists {
+		return nil, http.StatusNotFound
+	}
+
+	steps := r.Query.Steps.Value
+	states := r.Query.States.Value
+
+	start := time.Now()
+
+	solutions := puzzle.GetSolutions(su.SolutionsLimit{
+		MaxSolutions: 2,
+		LogEnabled:   steps,
+		LogState:     states,
+	})
+
+	duration := time.Since(start)
+
+	if len(solutions) == 0 {
+		return nil, http.StatusNotFound
+	}
+
+	first := solutions[0]
+
+	switch r.Params.Format {
+	case FormatJson:
+		rsp := SolveFormatSingleJson{}
+		rsp.Puzzle = puzzle.GetAll()
+		rsp.BoxWidth = puzzle.Kind.BoxSize.Width
+		rsp.BoxHeight = puzzle.Kind.BoxSize.Height
+		rsp.Solution = first.Puzzle.GetAll()
+		rsp.Unique = len(solutions) == 1
+		rsp.Duration = duration.String()
+		rsp.Cost = first.GetLastLog().RunningCost
+		if steps {
+			rsp.Steps = toPuzzleSteps(first, false)
+		}
+
+		return rsp, http.StatusOK
+
+	case FormatText:
+		text := first.Puzzle.ToConsoleString() + "\n"
+		text += fmt.Sprintf("Duration: %v\n", duration)
+		text += fmt.Sprintf("Unique: %v\n", len(solutions) == 1)
+		text += fmt.Sprintf("Cost: %d\n", first.GetLastLog().RunningCost)
+		text += "\n"
+
+		for _, log := range first.Logs {
+			text += log.String() + "\n"
+		}
+
+		return r.SendText(text, http.StatusOK)
+
+	case FormatPDF:
+		pdf := su.NewPDF()
+		pdf.Add(&first.Puzzle, false)
+
+		return pdf.Send(r.Response, true)
+	}
+
+	return nil, http.StatusOK
+}
+
+// =====================================================
+// GET /generate/{format}
+// =====================================================
+
+type GenerateFormatSingleJson struct {
+	Seed    int64             `json:"seed"`
+	Puzzles []GeneratedPuzzle `json:"puzzles"`
+}
+
+type GenerateFormatSingleQuery struct {
+	GenerateKind
+	PDF OptionsPDF `json:"pdf"`
+}
+
+func DoGenerateFormatSingle(r JsonRequest[None, FormatParam, GenerateFormatSingleQuery]) (any, int) {
+	kind := r.Query.GenerateKind
+	generated := doKindGeneration(kind, nil, nil)
+
+	switch r.Params.Format {
+	case FormatJson:
+		rsp := GenerateFormatSingleJson{}
+		rsp.Seed = int64(kind.Seed.Value)
+		for _, g := range generated {
+			rsp.Puzzles = append(rsp.Puzzles, g)
+		}
+
+		return rsp, http.StatusOK
+
+	case FormatText:
+		sb := strings.Builder{}
+
+		sb.WriteString(fmt.Sprintf("Seed: %d\n", kind.Seed.Value))
+
+		for index, g := range generated {
+			sb.WriteString("\n")
+			sb.WriteString(fmt.Sprintf("Puzzle #%d\n\n", index+1))
+
+			if kind.Candidates.Value {
+				sb.WriteString(g.Puzzle.Puzzle.ToConsoleCandidatesString())
+			} else {
+				sb.WriteString(g.Puzzle.Puzzle.ToConsoleString())
+			}
+			sb.WriteString("\n\n")
+
+			if g.Difficulty != "" {
+				sb.WriteString(fmt.Sprintf("Difficulty: %v\n", g.Difficulty))
+			}
+			sb.WriteString(fmt.Sprintf("Duration: %v\n\n", g.Duration))
+
+			if kind.Solutions.Value {
+				sb.WriteString("Solution:\n")
+
+				sb.WriteString(g.Solution.Puzzle.ToConsoleString())
+				sb.WriteString("\n\n")
+			}
+
+			if kind.SolutionSteps.Value || kind.SolutionStates.Value {
+				sb.WriteString("Steps:\n")
+
+				for _, log := range g.Steps {
+					if kind.SolutionSteps.Value {
+						sb.WriteString(log.Log.String())
+						sb.WriteString("\n")
+					}
+					if kind.SolutionStates.Value {
+						sb.WriteString(log.Log.State.ToConsoleString())
+						sb.WriteString("\n")
+					}
+					sb.WriteString("\n")
+				}
+				sb.WriteString("\n")
+			}
+		}
+
+		return r.SendText(sb.String(), http.StatusOK)
+
+	case FormatPDF:
+		pdf := su.NewPDF()
+		pdf.PuzzlesWide = su.Max(1, r.Query.PDF.PuzzlesWide)
+		pdf.PuzzlesHigh = su.Max(1, r.Query.PDF.PuzzlesHigh)
+		for _, g := range generated {
+			pdf.Add(g.Puzzle.Puzzle, kind.Candidates.Value)
+		}
+
+		return pdf.Send(r.Response, true)
+	}
+
+	return nil, -1
+}
+
+// =====================================================
+// POST /generate/{format}
+// =====================================================
+
+// =====================================================
+// POST /solution/{format}
+// =====================================================
+
+// =====================================================
+// POST /solutions/{format}
+// =====================================================
+
+func doKindGeneration(gen GenerateKind, previousSeed *int64, previousRandom *rand.Rand) []GeneratedPuzzle {
+	rand := previousRandom
+	randSeed := int64(gen.Seed.Value)
+
+	if rand == nil || previousSeed == nil || *previousSeed != randSeed {
+		rand = su.RandomSeeded(randSeed)
+
+		if previousSeed != nil {
+			*previousSeed = randSeed
+		}
+		if previousRandom != nil {
+			*previousRandom = *rand
+		}
+	}
+
+	puzzles := []GeneratedPuzzle{}
+	kind, clear := gen.toDomain()
+	candidates := gen.Candidates.Value
+
+	clear.Fast = true
+	clear.MaxStates = 256
+
+	count := su.Max(1, int(gen.Count.Value))
+
+	generateTries := 48
+	generateAttempts := 256
+
+	for i := 0; i < count; i++ {
+		g := su.NewRandomGenerator(kind, rand)
+		g.Solver().LogEnabled = gen.SolutionSteps.Value
+		g.Solver().LogState = gen.SolutionStates.Value
+
+		start := time.Now()
+
+		for k := 0; k < generateTries; k++ {
+			generated, _ := g.Attempts(generateAttempts)
+
+			if generated != nil {
+				cleared, _ := g.ClearCells(generated, clear)
+
+				duration := time.Since(start)
+
+				if cleared != nil {
+					solver := g.Solver()
+
+					pg := GeneratedPuzzle{}
+					pg.Difficulty = gen.Difficulty
+					pg.Duration = duration.String()
+					pg.Puzzle = toPuzzleData(cleared, candidates)
+					pg.Solver = solver
+
+					if gen.Solutions.Value {
+						solution := toPuzzleData(generated, false)
+						pg.Solution = &solution
+					}
+					if solver.LogEnabled || solver.LogState {
+						pg.Steps = toPuzzleSteps(g.Solver(), candidates)
+					}
+
+					puzzles = append(puzzles, pg)
+
+					break
+				}
+			}
+		}
+
+	}
+
+	return puzzles
+}
+
+func toPuzzleData(puzzle *su.Puzzle, candidates bool) PuzzleData {
+	pd := PuzzleData{}
+	pd.Puzzle = puzzle
+	pd.BoxWidth = puzzle.Kind.BoxSize.Width
+	pd.BoxHeight = puzzle.Kind.BoxSize.Height
+	pd.Values = puzzle.GetAll()
+	pd.Encoded = puzzle.EncodedString()
+	pd.State = puzzle.String()
+
+	if candidates {
+		pd.Candidates = puzzle.GetCandidates()
+	}
+
+	return pd
+}
+
+func toPuzzleSteps(solver *su.Solver, candidates bool) []PuzzleSolveStep {
+	steps := make([]PuzzleSolveStep, 0, len(solver.Logs))
+
+	for _, log := range solver.Logs {
+		steps = append(steps, toPuzzleStep(log, solver.LogState, candidates))
+	}
+
+	return steps
+}
+
+func toPuzzleStep(log su.SolverLog, state bool, candidates bool) PuzzleSolveStep {
+	step := PuzzleSolveStep{
+		Technique:         log.Step.Technique,
+		Index:             log.Index,
+		Batch:             log.Batch,
+		Cost:              log.Cost,
+		Placement:         log.Placement,
+		Row:               log.Before.Row,
+		Col:               log.Before.Col,
+		Before:            log.Before.Value,
+		BeforeCandidates:  log.Before.Candidates(),
+		After:             log.After.Value,
+		AfterCandidates:   log.After.Candidates(),
+		RunningCost:       log.RunningCost,
+		RunningPlacements: log.RunningPlacements,
+		Log:               log,
+	}
+
+	if state {
+		s := toPuzzleData(log.State, candidates)
+		step.State = &s
+	}
+
+	return step
+}
