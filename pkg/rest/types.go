@@ -101,6 +101,21 @@ func (p ConstraintSumCell) toDomain() su.Constraint {
 	}
 }
 
+type ConstraintSumCells struct {
+	Sum         []RelativePosition  `json:"sum"`
+	SumRelative Trim[bool]          `json:"sumRelative"`
+	Cells       *[]Position         `json:"cells"`
+	Relative    *[]RelativePosition `json:"relative"`
+}
+
+func (p ConstraintSumCells) toDomain() su.Constraint {
+	return &su.ConstraintSum{
+		Sum:      su.SumCells(toDomainSlice[su.Position](p.Sum), p.SumRelative.Value),
+		Cells:    toDomainSlicePointer[su.Position](p.Cells),
+		Relative: toDomainSlicePointer[su.Position](p.Relative),
+	}
+}
+
 type ConstraintUnique struct {
 	Cells    *[]Position         `json:"cells"`
 	Relative *[]RelativePosition `json:"relative"`
@@ -195,7 +210,8 @@ func (p ConstraintDivisible) toDomain() su.Constraint {
 
 type Constraints struct {
 	SumValues   []ConstraintSumValue   `json:"sumValues"`
-	SumCells    []ConstraintSumCell    `json:"sumCells"`
+	SumCell     []ConstraintSumCell    `json:"sumCell"`
+	SumCells    []ConstraintSumCells   `json:"sumCells"`
 	Uniques     []ConstraintUnique     `json:"uniques"`
 	Orders      []ConstraintOrder      `json:"orders"`
 	Magics      []ConstraintMagic      `json:"magics"`
@@ -207,6 +223,7 @@ type Constraints struct {
 func (c Constraints) toDomain() []su.Constraint {
 	d := make([]su.Constraint, 0)
 	d = append(d, toDomainSlice[su.Constraint](c.SumValues)...)
+	d = append(d, toDomainSlice[su.Constraint](c.SumCell)...)
 	d = append(d, toDomainSlice[su.Constraint](c.SumCells)...)
 	d = append(d, toDomainSlice[su.Constraint](c.Uniques)...)
 	d = append(d, toDomainSlice[su.Constraint](c.Orders)...)
