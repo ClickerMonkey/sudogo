@@ -44,6 +44,7 @@ type SolveLimit struct {
 	MaxPlacements int
 	MaxLogs       int
 	MaxBatches    int
+	Techniques    map[string]int
 }
 
 type SolveStepLogic func(solver *Solver, limits SolveLimit, step *SolveStep) (placements int, restart bool)
@@ -222,6 +223,14 @@ func (solver *Solver) CanContinue(limits SolveLimit, cost int) bool {
 		return false
 	}
 	if limits.MaxPlacements > 0 && lastLog.RunningPlacements >= limits.MaxPlacements {
+		return false
+	}
+	if limits.Techniques != nil && len(limits.Techniques) > 0 {
+		for technique, count := range limits.Techniques {
+			if solver.LogTechniques[technique] < count {
+				return true
+			}
+		}
 		return false
 	}
 	return true

@@ -253,6 +253,7 @@ var DifficultyMap = map[string]su.ClearLimit{
 	"tricky":     su.DifficultyTricky,
 	"diabolical": su.DifficultyDiabolical,
 	"fiendish":   su.DifficultyFiendish,
+	"custom":     su.ClearLimit{},
 }
 
 type GenerateKind struct {
@@ -267,6 +268,7 @@ type GenerateKind struct {
 	Symmetric      Trim[bool]            `json:"symmetric"`
 	BoxWidth       Trim[PuzzleDimension] `json:"boxWidth"`
 	BoxHeight      Trim[PuzzleDimension] `json:"boxHeight"`
+	Techniques     map[string]Trim[int]  `json:"techniques"`
 	Constraints    Constraints           `json:"constraints"`
 	Candidates     Trim[bool]            `json:"candidates"`
 	State          Trim[bool]            `json:"state"`
@@ -303,6 +305,12 @@ func (r GenerateKind) toDomain() (*su.Kind, su.ClearLimit) {
 	}
 	if r.Symmetric.Value {
 		clear.Symmetric = r.Symmetric.Value
+	}
+	if r.Techniques != nil && len(r.Techniques) > 0 {
+		clear.Techniques = make(map[string]int)
+		for technique, count := range r.Techniques {
+			clear.Techniques[technique] = count.Value
+		}
 	}
 
 	applyValue := func(user int, out *int) {
