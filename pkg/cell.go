@@ -14,6 +14,8 @@ type Cell struct {
 	Box int
 	// The possible values in the cell if there is no value.
 	candidates Candidates
+	// The constrains applicable for this cell.
+	Constraints []Constraint
 }
 
 type Group int

@@ -419,7 +419,7 @@ func TestConstraintOrder(t *testing.T) {
 
 func Test4GivenDigits(t *testing.T) {
 	// https://www.youtube.com/watch?v=hAyZ9K2EBF0
-	kind := NewKind(3, 3)
+	kind := Classic.Clone()
 	kind.Constraints = []Constraint{
 		// Diagonal from top left to botttom right must have 1-9
 		&ConstraintUnique{

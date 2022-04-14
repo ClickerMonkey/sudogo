@@ -269,6 +269,7 @@ type GenerateKind struct {
 	BoxHeight      Trim[PuzzleDimension] `json:"boxHeight"`
 	Constraints    Constraints           `json:"constraints"`
 	Candidates     Trim[bool]            `json:"candidates"`
+	State          Trim[bool]            `json:"state"`
 	Solutions      Trim[bool]            `json:"solutions"`
 	SolutionSteps  Trim[bool]            `json:"solutionSteps"`
 	SolutionStates Trim[bool]            `json:"solutionStates"`
@@ -293,6 +294,7 @@ func (r GenerateKind) toDomain() (*su.Kind, su.ClearLimit) {
 	boxHeight := su.Max(1, int(r.BoxHeight.Value))
 	kind := su.NewKind(boxWidth, boxHeight)
 	kind.Constraints = r.Constraints.toDomain()
+	limitScale := float32(kind.Area()) / 81.0
 
 	clear := su.ClearLimit{}
 
@@ -302,31 +304,22 @@ func (r GenerateKind) toDomain() (*su.Kind, su.ClearLimit) {
 	if r.Symmetric.Value {
 		clear.Symmetric = r.Symmetric.Value
 	}
-	if r.MaxBatches.Value != 0 {
-		clear.SolveLimit.MaxBatches = r.MaxBatches.Value
-	} else if r.MaxBatches.Value < 0 {
-		clear.SolveLimit.MaxBatches = 0
+
+	applyValue := func(user int, out *int) {
+		if user != 0 {
+			*out = user
+		} else if user < 0 {
+			*out = 0
+		} else {
+			*out = int(float32(*out) * limitScale)
+		}
 	}
-	if r.MaxCost.Value != 0 {
-		clear.SolveLimit.MaxCost = r.MaxCost.Value
-	} else if r.MaxCost.Value < 0 {
-		clear.SolveLimit.MaxCost = 0
-	}
-	if r.MinCost.Value != 0 {
-		clear.SolveLimit.MinCost = r.MinCost.Value
-	} else if r.MinCost.Value < 0 {
-		clear.SolveLimit.MinCost = 0
-	}
-	if r.MaxSteps.Value != 0 {
-		clear.SolveLimit.MaxLogs = r.MaxSteps.Value
-	} else if r.MaxSteps.Value < 0 {
-		clear.SolveLimit.MaxLogs = 0
-	}
-	if r.MaxPlacements.Value != 0 {
-		clear.SolveLimit.MaxPlacements = r.MaxPlacements.Value
-	} else if r.MaxPlacements.Value < 0 {
-		clear.SolveLimit.MaxPlacements = 0
-	}
+
+	applyValue(r.MaxBatches.Value, &clear.SolveLimit.MaxBatches)
+	applyValue(r.MaxCost.Value, &clear.SolveLimit.MaxCost)
+	applyValue(r.MinCost.Value, &clear.SolveLimit.MinCost)
+	applyValue(r.MaxSteps.Value, &clear.SolveLimit.MaxLogs)
+	applyValue(r.MaxPlacements.Value, &clear.SolveLimit.MaxPlacements)
 
 	return kind, clear
 }
@@ -421,15 +414,15 @@ type PuzzleSolveStep struct {
 }
 
 type OptionsPDF struct {
-	PuzzlesWide int `json:"puzzlesWide"`
-	PuzzlesHigh int `json:"puzzlesHigh"`
+	PuzzlesWide Trim[int] `json:"puzzlesWide"`
+	PuzzlesHigh Trim[int] `json:"puzzlesHigh"`
 }
 
 func (o OptionsPDF) Validate(v Validator) {
-	if o.PuzzlesWide < 0 || o.PuzzlesWide > 3 {
+	if o.PuzzlesWide.Value < 0 || o.PuzzlesWide.Value > 3 {
 		v.AddField("puzzlesWide", "Puzzles wide must be between 1 and 3.")
 	}
-	if o.PuzzlesHigh < 0 || o.PuzzlesHigh > 4 {
+	if o.PuzzlesHigh.Value < 0 || o.PuzzlesHigh.Value > 4 {
 		v.AddField("puzzlesHigh", "Puzzles high must be between 1 and 4.")
 	}
 }

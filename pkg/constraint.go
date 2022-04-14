@@ -80,6 +80,27 @@ func SumCell(pos Position, relative bool) ConstraintSumProvider {
 	}
 }
 
+// A sum provider which returns the value (or largest candidate) of a cell
+// at the given position
+func SumCells(positions []Position, relative bool) ConstraintSumProvider {
+	return func(cell *Cell, puzzle *Puzzle) int {
+		value := 0
+		for _, pos := range positions {
+			col := pos.Col
+			row := pos.Row
+			if relative {
+				col += cell.Col
+				row += cell.Row
+			}
+			if puzzle.Contains(col, row) {
+				other := puzzle.Get(col, row)
+				value += other.MaxValue()
+			}
+		}
+		return value
+	}
+}
+
 func (c *ConstraintSum) Affects(cell *Cell) bool {
 	return containsCell(cell, c.Cells, nil)
 }

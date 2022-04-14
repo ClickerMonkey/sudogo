@@ -2,37 +2,13 @@ package sudogo
 
 import "fmt"
 
-type CellGroups struct {
-	Cell        *Cell
-	All         []*Cell
-	Box         []*Cell
-	Row         []*Cell
-	Col         []*Cell
-	Constraints []Constraint
-}
-
-func (group *CellGroups) Remove(neighbor *Cell) {
-	group.All = removeValue(group.All, neighbor)
-	group.Box = removeValue(group.Box, neighbor)
-	group.Row = removeValue(group.Row, neighbor)
-	group.Col = removeValue(group.Col, neighbor)
-}
-
-func (group *CellGroups) GetGroup(groupIndex Group) []*Cell {
-	if groupIndex == GroupCol {
-		return group.Col
-	} else if groupIndex == GroupRow {
-		return group.Row
-	} else {
-		return group.Box
-	}
-}
-
 type Solver struct {
 	Puzzle   Puzzle
 	Steps    []*SolveStep
-	Cells    []CellGroups
-	Unsolved []*CellGroups
+	Unsolved []*Cell
+	Boxs     [][]*Cell
+	Rows     [][]*Cell
+	Cols     [][]*Cell
 
 	LogEnabled    bool
 	LogState      bool
@@ -111,56 +87,36 @@ var GenerateSolveSteps = []*SolveStep{
 
 func NewSolver(starting Puzzle) Solver {
 	puzzle := starting.Clone()
-	cells := make([]CellGroups, puzzle.Kind.Area())
-	unsolved := make([]*CellGroups, 0, puzzle.Kind.Area())
+	unsolved := make([]*Cell, 0, puzzle.Kind.Area())
 	groupCapacity := puzzle.Kind.Digits()
-	allCapacity := groupCapacity * 3
-	constraints := puzzle.Kind.Constraints
-	constraintCapacity := len(constraints)
+	rows := make([][]*Cell, groupCapacity)
+	cols := make([][]*Cell, groupCapacity)
+	boxs := make([][]*Cell, groupCapacity)
+
+	for i := 0; i < groupCapacity; i++ {
+		rows[i] = make([]*Cell, 0, groupCapacity)
+		cols[i] = make([]*Cell, 0, groupCapacity)
+		boxs[i] = make([]*Cell, 0, groupCapacity)
+	}
 
 	for i := range puzzle.Cells {
 		cell := &puzzle.Cells[i]
-		group := &cells[i]
 
-		group.Cell = cell
-		group.All = make([]*Cell, 0, allCapacity)
-		group.Box = make([]*Cell, 0, groupCapacity)
-		group.Row = make([]*Cell, 0, groupCapacity)
-		group.Col = make([]*Cell, 0, groupCapacity)
-		group.Constraints = make([]Constraint, 0, constraintCapacity)
 		if cell.Empty() {
-			unsolved = append(unsolved, group)
-			for k := range constraints {
-				constrain := constraints[k]
-				if constrain.Affects(cell) {
-					group.Constraints = append(group.Constraints, constrain)
-				}
-			}
-		}
-		for k := range puzzle.Cells {
-			other := &puzzle.Cells[k]
-			if i != k && other.Empty() {
-				if cell.InGroup(other) {
-					group.All = append(group.All, other)
-				}
-				if cell.InBox(other) {
-					group.Box = append(group.Box, other)
-				}
-				if cell.InRow(other) {
-					group.Row = append(group.Row, other)
-				}
-				if cell.InColumn(other) {
-					group.Col = append(group.Col, other)
-				}
-			}
+			unsolved = append(unsolved, cell)
+			rows[cell.Row] = append(rows[cell.Row], cell)
+			cols[cell.Col] = append(cols[cell.Col], cell)
+			boxs[cell.Box] = append(boxs[cell.Box], cell)
 		}
 	}
 
 	return Solver{
 		Puzzle:        puzzle,
 		Steps:         StandardSolveSteps,
-		Cells:         cells,
 		Unsolved:      unsolved,
+		Rows:          rows,
+		Cols:          cols,
+		Boxs:          boxs,
 		LogEnabled:    false,
 		LogState:      false,
 		LogTechniques: map[string]int{},
@@ -169,50 +125,75 @@ func NewSolver(starting Puzzle) Solver {
 	}
 }
 
+func (solver *Solver) Row(row int) []*Cell {
+	return solver.Rows[row]
+}
+
+func (solver *Solver) Col(col int) []*Cell {
+	return solver.Cols[col]
+}
+
+func (solver *Solver) Box(box int) []*Cell {
+	return solver.Boxs[box]
+}
+
+func (solver *Solver) Group(groupIndex Group, cell *Cell) []*Cell {
+	if groupIndex == GroupCol {
+		return solver.Cols[cell.Col]
+	} else if groupIndex == GroupRow {
+		return solver.Rows[cell.Row]
+	} else {
+		return solver.Boxs[cell.Box]
+	}
+}
+
 func (solver *Solver) Set(col int, row int, value int) bool {
 	return solver.SetCell(solver.Puzzle.Get(col, row), value)
 }
 
 func (solver *Solver) SetCell(cell *Cell, value int) bool {
-	if cell == nil {
+	if cell == nil || value <= 0 {
 		return false
 	}
-	return solver.SetGroup(&solver.Cells[cell.Id], value)
-}
-
-func (solver *Solver) SetGroup(group *CellGroups, value int) bool {
-	if group == nil || value <= 0 {
-		return false
-	}
-	set := group.Cell.SetValue(value)
+	set := cell.SetValue(value)
 	if set {
-		for _, other := range group.All {
+		rows := solver.Rows[cell.Row]
+		cols := solver.Cols[cell.Col]
+		boxs := solver.Boxs[cell.Box]
+
+		for _, other := range rows {
+			other.RemoveCandidate(value)
+		}
+		for _, other := range cols {
+			other.RemoveCandidate(value)
+		}
+		for _, other := range boxs {
 			other.RemoveCandidate(value)
 		}
 
-		solver.Unsolved = removeValue(solver.Unsolved, group)
-
-		for _, remaining := range solver.Unsolved {
-			remaining.Remove(group.Cell)
-		}
+		solver.Unsolved = removeValue(solver.Unsolved, cell)
+		solver.Rows[cell.Row] = removeValue(rows, cell)
+		solver.Cols[cell.Col] = removeValue(cols, cell)
+		solver.Boxs[cell.Box] = removeValue(boxs, cell)
 	}
+
 	return set
 }
 
 func (solver *Solver) GetMinCandidateCount() int {
 	min := 0
-	for _, group := range solver.Unsolved {
-		if min == 0 || min > group.Cell.candidates.Count {
-			min = group.Cell.candidates.Count
+	for _, cell := range solver.Unsolved {
+		if min == 0 || min > cell.candidates.Count {
+			min = cell.candidates.Count
 		}
 	}
 	return min
 }
 
-func (solver *Solver) GetGroupWhere(where func(group *CellGroups) bool) *CellGroups {
-	for _, group := range solver.Unsolved {
-		if where(group) {
-			return group
+func (solver *Solver) GetCellWhere(where func(cell *Cell) bool) *Cell {
+	for _, cell := range solver.Unsolved {
+		if where(cell) {
+			return cell
 		}
 	}
 	return nil
@@ -349,12 +330,12 @@ var StepNakedSingle = &SolveStep{
 	Logic: func(solver *Solver, limits SolveLimit, step *SolveStep) (int, bool) {
 		placements := 0
 		for solver.CanContinueStep(limits, step) {
-			group, groupValue := getNakedSingle(solver)
-			if group != nil {
+			cell, cellValue := getNakedSingle(solver)
+			if cell != nil {
 				solver.LogStep(step)
-				solver.LogBefore(group.Cell)
-				solver.SetGroup(group, groupValue)
-				solver.LogPlacement(group.Cell)
+				solver.LogBefore(cell)
+				solver.SetCell(cell, cellValue)
+				solver.LogPlacement(cell)
 				placements++
 			} else {
 				break
@@ -366,10 +347,10 @@ var StepNakedSingle = &SolveStep{
 }
 
 // A cell which has one possible candidate
-func getNakedSingle(solver *Solver) (*CellGroups, int) {
-	for _, group := range solver.Unsolved {
-		if group.Cell.candidates.Count == 1 {
-			return group, group.Cell.FirstCandidate()
+func getNakedSingle(solver *Solver) (*Cell, int) {
+	for _, cell := range solver.Unsolved {
+		if cell.candidates.Count == 1 {
+			return cell, cell.FirstCandidate()
 		}
 	}
 	return nil, 0
@@ -386,12 +367,12 @@ var StepHiddenSingle = &SolveStep{
 	Logic: func(solver *Solver, limits SolveLimit, step *SolveStep) (int, bool) {
 		placements := 0
 		for solver.CanContinueStep(limits, step) {
-			group, groupValue := getHiddenSingle(solver)
-			if group != nil {
+			cell, cellValue := getHiddenSingle(solver)
+			if cell != nil {
 				solver.LogStep(step)
-				solver.LogBefore(group.Cell)
-				solver.SetGroup(group, groupValue)
-				solver.LogPlacement(group.Cell)
+				solver.LogBefore(cell)
+				solver.SetCell(cell, cellValue)
+				solver.LogPlacement(cell)
 				placements++
 			} else {
 				break
@@ -403,19 +384,19 @@ var StepHiddenSingle = &SolveStep{
 }
 
 // A cell which has a candidate that is unique to the row, cell, or box
-func getHiddenSingle(solver *Solver) (*CellGroups, int) {
-	for _, group := range solver.Unsolved {
-		box := getHiddenSingleFromGroup(group.Cell, group.Box)
+func getHiddenSingle(solver *Solver) (*Cell, int) {
+	for _, cell := range solver.Unsolved {
+		box := getHiddenSingleFromGroup(cell, solver.Box(cell.Box))
 		if box != 0 {
-			return group, box
+			return cell, box
 		}
-		row := getHiddenSingleFromGroup(group.Cell, group.Row)
+		row := getHiddenSingleFromGroup(cell, solver.Row(cell.Row))
 		if row != 0 {
-			return group, row
+			return cell, row
 		}
-		col := getHiddenSingleFromGroup(group.Cell, group.Col)
+		col := getHiddenSingleFromGroup(cell, solver.Col(cell.Col))
 		if col != 0 {
-			return group, col
+			return cell, col
 		}
 	}
 	return nil, 0
@@ -426,6 +407,9 @@ func getHiddenSingleFromGroup(cell *Cell, group []*Cell) int {
 	on := cell.candidates
 
 	for _, other := range group {
+		if other.Id == cell.Id {
+			continue
+		}
 		on.Remove(other.candidates)
 		if on.Count == 0 {
 			break
@@ -447,24 +431,23 @@ var StepConstraints = &SolveStep{
 	Logic: func(solver *Solver, limits SolveLimit, step *SolveStep) (int, bool) {
 		removed := 0
 
-		for _, group := range solver.Unsolved {
-			if len(group.Constraints) == 0 {
+		for _, cell := range solver.Unsolved {
+			if len(cell.Constraints) == 0 {
 				continue
 			}
 
-			cell := group.Cell
 			candidates := cell.candidates
 
-			for _, constraint := range group.Constraints {
+			for _, constraint := range cell.Constraints {
 				constraint.RemoveCandidates(cell, &solver.Puzzle, &candidates)
 			}
 
 			if candidates.Value != cell.candidates.Value {
 				solver.LogStep(step)
-				solver.LogBefore(group.Cell)
+				solver.LogBefore(cell)
 				removed += cell.candidates.Count - candidates.Count
 				cell.candidates = candidates
-				solver.LogPlacement(group.Cell)
+				solver.LogPlacement(cell)
 
 				if !solver.CanContinueStep(limits, step) {
 					break
@@ -511,21 +494,26 @@ func doRemovePointingCandidates(solver *Solver, limits SolveLimit, step *SolveSt
 	return removed
 }
 
-func doRemovePointingCandidatesGroup(solver *Solver, limits SolveLimit, step *SolveStep, group *CellGroups, groupIndex Group) int {
+func doRemovePointingCandidatesGroup(solver *Solver, limits SolveLimit, step *SolveStep, cell *Cell, groupIndex Group) int {
 	// all candidates in this box's group that are shared
-	cell := group.Cell
 	cand := cell.candidates
 	removed := 0
 
 	// remove candidates that are not shared
-	for _, other := range group.Box {
+	for _, other := range solver.Box(cell.Box) {
+		if other.Id == cell.Id {
+			continue
+		}
 		if other.GetGroup(groupIndex) == cell.GetGroup(groupIndex) {
 			cand.And(other.candidates)
 		}
 	}
 
 	// remove candidates that exist outside the row or column
-	for _, other := range group.Box {
+	for _, other := range solver.Box(cell.Box) {
+		if other.Id == cell.Id {
+			continue
+		}
 		if other.GetGroup(groupIndex) != cell.GetGroup(groupIndex) {
 			cand.Remove(other.candidates)
 		}
@@ -534,7 +522,10 @@ func doRemovePointingCandidatesGroup(solver *Solver, limits SolveLimit, step *So
 	// what is remaining are candidates confined to the cells column in the box
 	if cand.Count > 0 {
 		hasOverlap := false
-		for _, other := range group.GetGroup(groupIndex) {
+		for _, other := range solver.Group(groupIndex, cell) {
+			if other.Id == cell.Id {
+				continue
+			}
 			if other.Box != cell.Box && other.candidates.Overlaps(cand) {
 				hasOverlap = true
 				break
@@ -542,7 +533,10 @@ func doRemovePointingCandidatesGroup(solver *Solver, limits SolveLimit, step *So
 		}
 		if hasOverlap {
 			solver.LogStep(step)
-			for _, other := range group.GetGroup(groupIndex) {
+			for _, other := range solver.Group(groupIndex, cell) {
+				if other.Id == cell.Id {
+					continue
+				}
 				if other.Box != cell.Box && other.candidates.Overlaps(cand) {
 					solver.LogBefore(other)
 					removed += other.candidates.Remove(cand)
@@ -585,14 +579,16 @@ func doRemoveClaimingCandidates(solver *Solver, limits SolveLimit, step *SolveSt
 func doRemoveClaimingCandidatesGroups(solver *Solver, limits SolveLimit, step *SolveStep, groupIndex Group) int {
 	removed := 0
 
-	for _, group := range solver.Unsolved {
-		cell := group.Cell
+	for _, cell := range solver.Unsolved {
 
 		// all candidates in this cand that are not shared outside of the box
 		cand := cell.candidates
 
 		// remove candidates from row that exist in the cells row outside the box
-		for _, other := range group.GetGroup(groupIndex) {
+		for _, other := range solver.Group(groupIndex, cell) {
+			if other.Id == cell.Id {
+				continue
+			}
 			if other.Box != cell.Box {
 				cand.Remove(other.candidates)
 			}
@@ -601,7 +597,10 @@ func doRemoveClaimingCandidatesGroups(solver *Solver, limits SolveLimit, step *S
 		// what is remaining are the candidates unique to the row outside this box
 		if cand.Count > 0 {
 			solver.LogStep(step)
-			for _, other := range group.Box {
+			for _, other := range solver.Box(cell.Box) {
+				if other.Id == cell.Id {
+					continue
+				}
 				if other.GetGroup(groupIndex) != cell.GetGroup(groupIndex) && other.candidates.Overlaps(cand) {
 					solver.LogBefore(other)
 					removed += other.candidates.Remove(cand)
@@ -644,21 +643,20 @@ var StepNakedSubsets4 = CreateStepNakedSubsets(4, "Naked Quad", 5000, 4000)
 func doRemoveNakedSubsetCandidates(solver *Solver, subsetSize int, limits SolveLimit, step *SolveStep) int {
 	removed := 0
 
-	for _, group := range solver.Unsolved {
-		cell := group.Cell
+	for _, cell := range solver.Unsolved {
 
 		if cell.candidates.Count != subsetSize {
 			continue
 		}
-		removed += removeNakedSubsetCandidatesFromGroup(group, subsetSize, solver, limits, step, group.Row)
+		removed += removeNakedSubsetCandidatesFromGroup(cell, subsetSize, solver, limits, step, solver.Row(cell.Row))
 		if !solver.CanContinueStep(limits, step) {
 			break
 		}
-		removed += removeNakedSubsetCandidatesFromGroup(group, subsetSize, solver, limits, step, group.Col)
+		removed += removeNakedSubsetCandidatesFromGroup(cell, subsetSize, solver, limits, step, solver.Col(cell.Col))
 		if !solver.CanContinueStep(limits, step) {
 			break
 		}
-		removed += removeNakedSubsetCandidatesFromGroup(group, subsetSize, solver, limits, step, group.Box)
+		removed += removeNakedSubsetCandidatesFromGroup(cell, subsetSize, solver, limits, step, solver.Box(cell.Box))
 		if !solver.CanContinueStep(limits, step) {
 			break
 		}
@@ -668,41 +666,47 @@ func doRemoveNakedSubsetCandidates(solver *Solver, subsetSize int, limits SolveL
 }
 
 // Remove naked subsets from group
-func removeNakedSubsetCandidatesFromGroup(cellGroup *CellGroups, subsetSize int, solver *Solver, limits SolveLimit, step *SolveStep, group []*Cell) int {
+func removeNakedSubsetCandidatesFromGroup(cell *Cell, subsetSize int, solver *Solver, limits SolveLimit, step *SolveStep, group []*Cell) int {
 	removed := 0
 	matches := 1
-	candidates := cellGroup.Cell.candidates
+	candidates := cell.candidates
 	sameBox := true
 	sameRow := true
 	sameCol := true
 
 	for _, other := range group {
+		if other.Id == cell.Id {
+			continue
+		}
 		if other.candidates.Value == candidates.Value {
 			matches++
-			sameBox = sameBox && other.Box == cellGroup.Cell.Box
-			sameRow = sameRow && other.Row == cellGroup.Cell.Row
-			sameCol = sameCol && other.Col == cellGroup.Cell.Col
+			sameBox = sameBox && other.Box == cell.Box
+			sameRow = sameRow && other.Row == cell.Row
+			sameCol = sameCol && other.Col == cell.Col
 		}
 	}
 
 	if matches == subsetSize {
 		if sameBox {
-			removed += removeCandidatesFromDifferent(cellGroup.Box, candidates, solver, limits, step)
+			removed += removeCandidatesFromDifferent(cell, solver.Box(cell.Box), candidates, solver, limits, step)
 		}
 		if sameRow && solver.CanContinueStep(limits, step) {
-			removed += removeCandidatesFromDifferent(cellGroup.Row, candidates, solver, limits, step)
+			removed += removeCandidatesFromDifferent(cell, solver.Row(cell.Row), candidates, solver, limits, step)
 		}
 		if sameCol && solver.CanContinueStep(limits, step) {
-			removed += removeCandidatesFromDifferent(cellGroup.Col, candidates, solver, limits, step)
+			removed += removeCandidatesFromDifferent(cell, solver.Col(cell.Col), candidates, solver, limits, step)
 		}
 	}
 	return removed
 }
 
-func removeCandidatesFromDifferent(group []*Cell, candidates Candidates, solver *Solver, limits SolveLimit, step *SolveStep) int {
+func removeCandidatesFromDifferent(cell *Cell, group []*Cell, candidates Candidates, solver *Solver, limits SolveLimit, step *SolveStep) int {
 	removed := 0
 	hasOverlap := false
 	for _, other := range group {
+		if other.Id == cell.Id {
+			continue
+		}
 		if other.candidates.Value != candidates.Value && other.candidates.Overlaps(candidates) {
 			hasOverlap = true
 			break
@@ -711,6 +715,9 @@ func removeCandidatesFromDifferent(group []*Cell, candidates Candidates, solver 
 	if hasOverlap {
 		solver.LogStep(step)
 		for _, other := range group {
+			if other.Id == cell.Id {
+				continue
+			}
 			if other.candidates.Value != candidates.Value && other.candidates.Overlaps(candidates) {
 				solver.LogBefore(other)
 				removed += other.candidates.Remove(candidates)
@@ -808,8 +815,7 @@ func doRemoveHiddenSubsetCandidates(solver *Solver, subsetSize int, limits Solve
 	tested := [3]Bitset{}
 	removed := 0
 
-	for _, group := range solver.Unsolved {
-		cell := group.Cell
+	for _, cell := range solver.Unsolved {
 
 		for g := GroupCol; g <= GroupBox; g++ {
 			// Only test a row/column/box of an unsolved cell once
@@ -817,8 +823,7 @@ func doRemoveHiddenSubsetCandidates(solver *Solver, subsetSize int, limits Solve
 			if !tested[g].Has(cellGroup) {
 				tested[g].Set(cellGroup, true)
 
-				dist.reset(group.GetGroup(g))
-				dist.addCell(cell)
+				dist.reset(solver.Group(g, cell))
 
 				removed += doRemoveHiddenSubset(&dist, subsetSize, solver, limits, step)
 
@@ -949,8 +954,7 @@ func doSkyscraperRemoveGroup(solver *Solver, limits SolveLimit, step *SolveStep,
 func removeCandidateInGroups(solver *Solver, limits SolveLimit, step *SolveStep, candidate int, a *Cell, b *Cell) int {
 	removed := 0
 
-	for _, group := range solver.Unsolved {
-		cell := group.Cell
+	for _, cell := range solver.Unsolved {
 		if cell.HasCandidate(candidate) && cell.InGroup(a) && cell.InGroup(b) {
 			solver.LogStep(step)
 			solver.LogBefore(cell)
@@ -972,15 +976,13 @@ func getGroupCandidateDistributions(solver *Solver, groupIndex Group) []*candida
 	groupsTested := Bitset{}
 	groups := []*candidateDistribution{}
 
-	for _, group := range solver.Unsolved {
-		cell := group.Cell
+	for _, cell := range solver.Unsolved {
 		cellGroup := cell.GetGroup(groupIndex)
 
 		if !groupsTested.Has(cellGroup) {
 			groupsTested.Set(cellGroup, true)
 			dist := newDistribution(size)
-			dist.reset(group.GetGroup(groupIndex))
-			dist.addCell(cell)
+			dist.reset(solver.Group(groupIndex, cell))
 			groups = append(groups, &dist)
 		}
 	}
@@ -1067,14 +1069,12 @@ func doEmptyRectangle(solver *Solver, limits SolveLimit, step *SolveStep) int {
 
 	boxTested := Bitset{}
 
-	for _, group := range solver.Unsolved {
-		cell := group.Cell
+	for _, cell := range solver.Unsolved {
+
 		if !boxTested.Has(cell.Box) {
 			boxTested.Set(cell.Box, true)
 
-			box := append(group.Box[:], cell)
-
-			getEmptyRectangles(box, func(candidate, col, row int) bool {
+			getEmptyRectangles(solver.Box(cell.Box), func(candidate, col, row int) bool {
 				can := false
 				can = findPerpendicularPair(solver, candidate, row, GroupRow, cell.Box, func(groupFound, otherGroup *Cell) bool {
 					dual := countCandidateInGroup(solver, candidate, otherGroup.Row, GroupRow) == 2
@@ -1181,13 +1181,15 @@ func getEmptyRectangles(box []*Cell, onEmptyRectangle func(candidate int, col in
 }
 
 func findPerpendicularPair(solver *Solver, candidate int, groupSearch int, groupType Group, notBox int, onPair func(groupFound *Cell, otherGroup *Cell) bool) bool {
-	for _, group := range solver.Unsolved {
-		cell := group.Cell
+	for _, cell := range solver.Unsolved {
 
 		if cell.Box != notBox && cell.GetGroup(groupType) == groupSearch && cell.HasCandidate(candidate) {
 			var match *Cell
 			matches := 0
-			for _, other := range group.GetGroup(1 - groupType) {
+			for _, other := range solver.Group(1-groupType, cell) {
+				if other.Id == cell.Id {
+					continue
+				}
 				if other.HasCandidate(candidate) {
 					match = other
 					matches++
@@ -1217,11 +1219,10 @@ func removeCandidate(solver *Solver, limit SolveLimit, step *SolveStep, col int,
 }
 
 func countCandidateInGroup(solver *Solver, candidate int, groupSearch int, groupType Group) int {
-	for _, group := range solver.Unsolved {
-		cell := group.Cell
+	for _, cell := range solver.Unsolved {
 
 		if cell.GetGroup(groupType) == groupSearch {
-			searchGroup := group.GetGroup(groupType)
+			searchGroup := solver.Group(groupType, cell)
 			matches := 0
 
 			if cell.HasCandidate(candidate) {
@@ -1229,6 +1230,9 @@ func countCandidateInGroup(solver *Solver, candidate int, groupSearch int, group
 			}
 
 			for _, other := range searchGroup {
+				if other.Id == cell.Id {
+					continue
+				}
 				if other.HasCandidate(candidate) {
 					matches++
 				}
@@ -1305,8 +1309,8 @@ func doBasicFishGroups(solver *Solver, limits SolveLimit, step *SolveStep, setSi
 					}
 				}
 				if rowsHit.Count == setSize && colsHit.Count == setSize {
-					for _, group := range solver.Cells {
-						cell := group.Cell
+					for cellIndex := range solver.Puzzle.Cells {
+						cell := &solver.Puzzle.Cells[cellIndex]
 						inColumn := colsHit.Has(cell.Col)
 						inRow := rowsHit.Has(cell.Row)
 						if cell.HasCandidate(candidate) && ((inRow && !inColumn) || (!inRow && inColumn)) {

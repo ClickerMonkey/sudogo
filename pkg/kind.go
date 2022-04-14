@@ -43,6 +43,13 @@ func NewKind(boxWidth int, boxHeight int) *Kind {
 	}
 }
 
+func (kind *Kind) Clone() *Kind {
+	return &Kind{
+		BoxSize:     kind.BoxSize,
+		Constraints: sliceClone(kind.Constraints),
+	}
+}
+
 // The width, height, and number of digits in this puzzle kind.
 func (kind *Kind) Size() int {
 	return kind.BoxSize.Width * kind.BoxSize.Height
@@ -95,4 +102,15 @@ func (kind *Kind) Create(values [][]int) Puzzle {
 // Creates a generator for puzzles of this kind.
 func (kind *Kind) Generator() Generator {
 	return NewGenerator(kind)
+}
+
+func (kind *Kind) ConstraintsFor(cell *Cell) []Constraint {
+	constraints := make([]Constraint, 0, len(kind.Constraints))
+	for _, c := range kind.Constraints {
+		if c.Affects(cell) {
+			constraints = append(constraints, c)
+		}
+	}
+
+	return constraints
 }

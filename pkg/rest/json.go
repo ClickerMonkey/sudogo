@@ -177,7 +177,7 @@ func ParamsToMap(r *http.Request) any {
 
 func QueryToMap(r *http.Request) any {
 	out := &queryNode{}
-	pathRegex := regexp.MustCompile(`[\]\[]+`)
+	pathRegex := regexp.MustCompile(`[\]\[\.]+`)
 	queryValues := r.URL.Query()
 
 	for k, v := range queryValues {

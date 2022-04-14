@@ -269,6 +269,8 @@ func DoPuzzlePDFSimple(r JsonRequest[None, None, PuzzlePDFSimpleQuery]) (any, in
 
 type PuzzleFormatSingleQuery struct {
 	Candidates Trim[bool] `json:"candidates"`
+	State      Trim[bool] `json:"state"`
+	Solution   Trim[bool] `json:"solution"`
 }
 
 type PuzzleFormatSingleJson struct {
@@ -309,7 +311,7 @@ func DoPuzzleFormatSingle(r JsonRequest[None, PuzzleParams, PuzzleFormatSingleQu
 
 	case FormatPDF:
 		pdf := su.NewPDF()
-		pdf.Add(puzzle, r.Query.Candidates.Value)
+		pdf.Add(puzzle, r.Query.Candidates.Value, r.Query.State.Value, r.Query.Solution.Value)
 
 		return pdf.Send(r.Response, true)
 	}
@@ -394,7 +396,7 @@ func DoSolveFormatSingle(r JsonRequest[None, PuzzleParams, SolveFormatSingleQuer
 
 	case FormatPDF:
 		pdf := su.NewPDF()
-		pdf.Add(&first.Puzzle, false)
+		pdf.Add(&first.Puzzle, false, false, false)
 
 		return pdf.Send(r.Response, true)
 	}
@@ -480,10 +482,10 @@ func DoGenerateFormatSingle(r JsonRequest[None, FormatParam, GenerateFormatSingl
 
 	case FormatPDF:
 		pdf := su.NewPDF()
-		pdf.PuzzlesWide = su.Max(1, r.Query.PDF.PuzzlesWide)
-		pdf.PuzzlesHigh = su.Max(1, r.Query.PDF.PuzzlesHigh)
+		pdf.PuzzlesWide = su.Max(1, r.Query.PDF.PuzzlesWide.Value)
+		pdf.PuzzlesHigh = su.Max(1, r.Query.PDF.PuzzlesHigh.Value)
 		for _, g := range generated {
-			pdf.Add(g.Puzzle.Puzzle, kind.Candidates.Value)
+			pdf.Add(g.Puzzle.Puzzle, kind.Candidates.Value, kind.State.Value, kind.Solutions.Value)
 		}
 
 		return pdf.Send(r.Response, true)

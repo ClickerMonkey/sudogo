@@ -32,11 +32,15 @@ type PuzzlePDF struct {
 	BorderThickWidth float64
 	BorderThinColor  Color
 	BorderThinWidth  float64
+	StateColor       Color
+	SolutionColor    Color
 }
 
 type PuzzlePDFItem struct {
-	Puzzle     *Puzzle
-	Candidates bool
+	Puzzle         *Puzzle
+	Candidates     bool
+	StateString    bool
+	SolutionString bool
 }
 
 type Color struct {
@@ -78,13 +82,17 @@ func NewPDF() PuzzlePDF {
 		BorderThickWidth: 2.0,
 		BorderThinColor:  ColorBlack,
 		BorderThinWidth:  0.5,
+		StateColor:       ColorBlack,
+		SolutionColor:    ColorGray,
 	}
 }
 
-func (pdf *PuzzlePDF) Add(puzzle *Puzzle, candidates bool) {
+func (pdf *PuzzlePDF) Add(puzzle *Puzzle, candidates bool, stateString bool, solutionString bool) {
 	pdf.Puzzles = append(pdf.Puzzles, PuzzlePDFItem{
-		Puzzle:     puzzle,
-		Candidates: candidates,
+		Puzzle:         puzzle,
+		Candidates:     candidates,
+		StateString:    stateString,
+		SolutionString: solutionString,
 	})
 }
 
@@ -154,6 +162,8 @@ func (pdf *PuzzlePDF) Generate() *gofpdf.Fpdf {
 		sizef := float64(size)
 		cellSize := puzzleSize / sizef
 		fontSize := cellSize * pdf.ValueFontScale
+		lineMargin := pdf.BorderThickWidth * 2
+		candidateSpace := cellSize - lineMargin
 		candidateSize := cellSize * pdf.CandidateScale
 		pageCol := pageIndex % pdf.PuzzlesWide
 		pageRow := pageIndex / pdf.PuzzlesWide
@@ -191,8 +201,13 @@ func (pdf *PuzzlePDF) Generate() *gofpdf.Fpdf {
 						cand = strings.Trim(cand, "[]")
 
 						p.SetFont(pdf.Font, "", candidateSize)
+
+						candWidth := p.GetStringWidth(cand)
+						if candWidth > candidateSpace {
+							p.SetFontSize(candidateSpace / candWidth * candidateSize)
+						}
 						p.SetTextColor(pdf.CandidateColor.R, pdf.CandidateColor.G, pdf.CandidateColor.B)
-						p.SetXY(originX+float64(x)*cellSize, originY+float64(y)*cellSize+pdf.BorderThickWidth*2)
+						p.SetXY(originX+float64(x)*cellSize, originY+float64(y)*cellSize+lineMargin)
 						p.CellFormat(cellSize, cellSize, cand, "0", 0, "CT", false, 0, "")
 					}
 				}
@@ -208,6 +223,35 @@ func (pdf *PuzzlePDF) Generate() *gofpdf.Fpdf {
 
 		for x := 0.0; x <= puzzleSize+0.0001; x += boxW {
 			p.Line(originX+x, originY, originX+x, originY+puzzleSize)
+		}
+
+		if item.StateString {
+			p.SetFontSize(fontSize)
+			stateString := puzzle.ToStateString(true, ".")
+			stateWidth := p.GetStringWidth(stateString)
+			stateFontSize := Min(candidateSize, puzzleSize/stateWidth*fontSize)
+			p.SetFontSize(stateFontSize)
+			p.SetTextColor(pdf.StateColor.R, pdf.StateColor.G, pdf.StateColor.B)
+			p.SetXY(originX, originY-stateFontSize-lineMargin)
+			p.CellFormat(puzzleSize, stateFontSize, stateString, "0", 0, "CT", false, 0, "")
+		}
+
+		if item.SolutionString {
+			solver := puzzle.Solver()
+			solution, solved := solver.Solve(SolveLimit{})
+			if solved {
+				p.SetFontSize(fontSize)
+				solutionString := solution.ToStateString(true, ".")
+				solutionWidth := p.GetStringWidth(solutionString)
+				solutionFontSize := Min(candidateSize, puzzleSize/solutionWidth*fontSize)
+				p.SetFontSize(solutionFontSize)
+				p.SetTextColor(pdf.SolutionColor.R, pdf.SolutionColor.G, pdf.SolutionColor.B)
+				p.SetXY(originX, originY+puzzleSize+lineMargin)
+				p.TransformBegin()
+				p.TransformRotate(180, originX+puzzleSize*0.5, originY+puzzleSize+lineMargin+solutionFontSize*0.5)
+				p.CellFormat(puzzleSize, solutionFontSize, solutionString, "0", 0, "CM", false, 0, "")
+				p.TransformEnd()
+			}
 		}
 	}
 

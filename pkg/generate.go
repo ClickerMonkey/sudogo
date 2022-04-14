@@ -58,42 +58,12 @@ func (gen *Generator) IsComplete() bool {
 	return gen.solver.Solved()
 }
 
-func (gen *Generator) GetUnsolved() *CellGroups {
+func (gen *Generator) GetUnsolved() *Cell {
 	return pointerAt(gen.solver.Unsolved, 0)
 }
 
-func (gen *Generator) GetRandomUnsolved() *CellGroups {
+func (gen *Generator) GetRandomUnsolved() *Cell {
 	return randomPointer(gen.Random, gen.solver.Unsolved)
-}
-
-func (gen *Generator) GetRandom(match func(other *Cell) bool) *CellGroups {
-	matches := 0
-	for _, group := range gen.solver.Cells {
-		if match(group.Cell) {
-			matches++
-		}
-	}
-	if matches == 0 {
-		return nil
-	}
-	chosen := gen.Random.Intn(matches)
-	for _, group := range gen.solver.Cells {
-		if match(group.Cell) {
-			chosen--
-			if chosen < 0 {
-				return &group
-			}
-		}
-	}
-	return nil
-}
-
-func (gen *Generator) GetRandomPressured() *CellGroups {
-	minCount := gen.solver.GetMinCandidateCount()
-
-	return gen.GetRandom(func(other *Cell) bool {
-		return other.Empty() && other.candidates.Count == minCount
-	})
 }
 
 func (gen *Generator) Attempt() *Puzzle {
@@ -108,10 +78,10 @@ func (gen *Generator) Attempt() *Puzzle {
 			return nil
 		}
 
-		randomGroup := gen.GetRandomUnsolved()
-		randomValue := randomElement(gen.Random, randomGroup.Cell.Candidates(), 0)
+		randomCell := gen.GetRandomUnsolved()
+		randomValue := randomElement(gen.Random, randomCell.Candidates(), 0)
 
-		gen.solver.SetGroup(randomGroup, randomValue)
+		gen.solver.SetCell(randomCell, randomValue)
 	}
 	return gen.Puzzle()
 }

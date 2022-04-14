@@ -26,6 +26,7 @@ func New(kind *Kind) Puzzle {
 		cell.Row = i / size
 		cell.Col = i % size
 		cell.Box = ((cell.Row / boxHeight) * boxsWide) + (cell.Col / boxWidth)
+		cell.Constraints = kind.ConstraintsFor(cell)
 		cell.candidates.Fill(size)
 	}
 
@@ -458,18 +459,18 @@ func (puzzle *Puzzle) GetSolutions(limit SolutionsLimit) []*Solver {
 
 		if !solved {
 			min := solver.GetMinCandidateCount()
-			minCell := solver.GetGroupWhere(func(group *CellGroups) bool {
-				return group.Cell.candidates.Count == min
+			minCell := solver.GetCellWhere(func(cell *Cell) bool {
+				return cell.candidates.Count == min
 			})
 			if minCell != nil {
-				for _, candidate := range minCell.Cell.Candidates() {
+				for _, candidate := range minCell.Candidates() {
 					newSolver := solution.Solver()
 					newSolver.LogEnabled = limit.LogEnabled
 					newSolver.LogState = limit.LogState
 					newSolver.Logs = solver.Logs[:]
 					newSolver.logTemplate = solver.logTemplate
 
-					newCell := newSolver.Puzzle.Get(minCell.Cell.Col, minCell.Cell.Row)
+					newCell := newSolver.Puzzle.Get(minCell.Col, minCell.Row)
 					newSolver.LogStep(StepBruteForce)
 					newSolver.LogBefore(newCell)
 					newSolver.SetCell(newCell, candidate)
