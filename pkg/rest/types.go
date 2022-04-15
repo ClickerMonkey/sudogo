@@ -372,7 +372,7 @@ type FormatParam struct {
 	Format Format `json:"format"`
 }
 
-func (f FormatParam) Validate(v Validator) {
+func (f *FormatParam) Validate(v Validator) {
 	format := strings.ToLower(string(f.Format))
 	switch format {
 	case "text", "json", "pdf":

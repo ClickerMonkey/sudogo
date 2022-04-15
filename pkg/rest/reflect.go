@@ -43,7 +43,8 @@ func (r *Reflector) getIterators(t reflect.Type) []ReflectIterator {
 
 	r.Iterators[t] = make([]ReflectIterator, 0)
 
-	if r.ShouldConsume(t) {
+	pointerCanConsume := t.Kind() != reflect.Pointer && r.ShouldConsume(reflect.PointerTo(t))
+	if !pointerCanConsume && r.ShouldConsume(t) {
 		r.addIterator(t, r.consumeValue())
 	}
 
@@ -93,7 +94,7 @@ func (r *Reflector) consumePointer(t reflect.Type) ReflectIterator {
 		if value.IsNil() {
 			return
 		}
-		r.iterate(iters, value.Elem(), consumer)
+		r.iterate(iters, ref(value.Elem()), consumer)
 	}
 }
 
@@ -107,7 +108,7 @@ func (r *Reflector) consumeInterface(t reflect.Type) ReflectIterator {
 		if value.IsNil() {
 			return
 		}
-		r.iterate(iters, value.Elem(), consumer)
+		r.iterate(iters, ref(value.Elem()), consumer)
 	}
 }
 
@@ -121,8 +122,11 @@ func (r *Reflector) consumeSlice(t reflect.Type) ReflectIterator {
 		if value.IsNil() {
 			return
 		}
-		for i := 0; i < value.Len(); i++ {
-			r.iterate(iters, value.Index(i), consumer.ForIndex(i))
+		slice := val(value)
+		for i := 0; i < slice.Len(); i++ {
+			item := ref(slice.Index(i))
+
+			r.iterate(iters, item, consumer.ForIndex(i))
 		}
 	}
 }
@@ -140,7 +144,7 @@ func (r *Reflector) consumeMap(t reflect.Type) ReflectIterator {
 		iter := value.MapRange()
 		for iter.Next() {
 			key := iter.Key()
-			value := iter.Value()
+			value := ref(iter.Value())
 
 			r.iterate(iters, value, consumer.ForKey(key.String()))
 		}
@@ -149,21 +153,36 @@ func (r *Reflector) consumeMap(t reflect.Type) ReflectIterator {
 
 func (r *Reflector) consumeField(parent reflect.Type, fieldIndex int) ReflectIterator {
 	field := parent.Field(fieldIndex)
-	iters := r.getIterators(field.Type)
+	iters := r.getIterators(reflect.PointerTo(field.Type))
 
 	if len(iters) == 0 {
-		return nil
+		iters = r.getIterators(field.Type)
+
+		if len(iters) == 0 {
+			return nil
+		}
 	}
 
 	return func(value reflect.Value, consumer ReflectConsumer) {
-		fieldValue := value.Field(fieldIndex)
-		if fieldValue.CanAddr() {
-			fieldValue = fieldValue.Addr()
-		}
+		fieldValue := ref(val(value).Field(fieldIndex))
 		if field.Anonymous {
 			r.iterate(iters, fieldValue, consumer)
 		} else {
 			r.iterate(iters, fieldValue, consumer.ForField(field))
 		}
 	}
+}
+
+func ref(value reflect.Value) reflect.Value {
+	if value.CanAddr() {
+		return value.Addr()
+	}
+	return value
+}
+
+func val(value reflect.Value) reflect.Value {
+	if value.Kind() == reflect.Pointer {
+		return value.Elem()
+	}
+	return value
 }

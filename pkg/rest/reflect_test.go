@@ -47,18 +47,28 @@ type PrintRoot struct {
 	Changes  int
 }
 
-func (root PrintRoot) Print(p *Printer) {
+func (root *PrintRoot) Print(p *Printer) {
 	p.Add("PrintRoot")
 	root.Changes = 1
 }
 
 type PrintChild struct {
 	Changes int
+	Child2  PrintChild2
 }
 
 func (child PrintChild) Print(p *Printer) {
 	p.Add("PrintChild")
 	child.Changes = 2
+}
+
+type PrintChild2 struct {
+	Changes int
+}
+
+func (child *PrintChild2) Print(p *Printer) {
+	p.Add("PrintChild2")
+	child.Changes = 4
 }
 
 type PrintChildPtr struct {
@@ -71,15 +81,8 @@ func (child *PrintChildPtr) Print(p *Printer) {
 }
 
 func TestReflector(t *testing.T) {
-	r := NewReflector(CanPrint)
 
-	p0 := &Printer{}
-	pr0 := PrintRoot{}
-	r.Consume(pr0, p0)
-	fmt.Println(p0.Messages)
-	fmt.Println(pr0.Changes)
-	fmt.Println(pr0.Child.Changes)
-	fmt.Println(pr0.ChildPtr.Changes)
+	r := NewReflector(CanPrint)
 
 	p1 := &Printer{}
 	pr1 := &PrintRoot{}
@@ -87,5 +90,6 @@ func TestReflector(t *testing.T) {
 	fmt.Println(p1.Messages)
 	fmt.Println(pr1.Changes)
 	fmt.Println(pr1.Child.Changes)
+	fmt.Println(pr1.Child.Child2.Changes)
 	fmt.Println(pr1.ChildPtr.Changes)
 }
