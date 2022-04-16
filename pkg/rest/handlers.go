@@ -209,8 +209,8 @@ func DoGenerateFormatSingle(r JsonRequest[None, FormatParam, GenerateFormatSingl
 
 	case FormatPDF:
 		pdf := su.NewPDF()
-		pdf.PuzzlesWide = su.Max(1, r.Query.PDF.PuzzlesWide.Value)
-		pdf.PuzzlesHigh = su.Max(1, r.Query.PDF.PuzzlesHigh.Value)
+		pdf.PuzzlesWide = r.Query.PDF.PuzzlesWide.Value
+		pdf.PuzzlesHigh = r.Query.PDF.PuzzlesHigh.Value
 		for _, g := range generated {
 			pdf.Add(g.Puzzle.Puzzle, kind.Candidates.Value, kind.State.Value, kind.Solutions.Value)
 		}
@@ -253,8 +253,8 @@ func DoGenerateFormatMany(r JsonRequest[GenerateRequest, FormatParam, GenerateFo
 
 	case FormatPDF:
 		pdf := su.NewPDF()
-		pdf.PuzzlesWide = su.Max(1, r.Query.PDF.PuzzlesWide.Value)
-		pdf.PuzzlesHigh = su.Max(1, r.Query.PDF.PuzzlesHigh.Value)
+		pdf.PuzzlesWide = r.Query.PDF.PuzzlesWide.Value
+		pdf.PuzzlesHigh = r.Query.PDF.PuzzlesHigh.Value
 		for _, run := range rsp {
 			for _, g := range run.Puzzles {
 				pdf.Add(g.Puzzle.Puzzle, run.Kind.Candidates.Value, run.Kind.State.Value, run.Kind.Solutions.Value)
@@ -388,11 +388,7 @@ type SolutionsFormatComplexQuery struct {
 }
 
 func (q *SolutionsFormatComplexQuery) Validate(v Validator) {
-	if q.Limit.Value == 0 {
-		q.Limit.Value = 256
-	} else if q.Limit.Value > 1024 {
-		v.AddField("limit", "exceeds the allowed maximum of 1024: %d", q.Limit.Value)
-	}
+	initAndValidate(&q.Limit.Value, 256, 1, 1024, v.Field("limit"))
 }
 
 func DoSolutionsFormatComplex(r JsonRequest[SolveKind, FormatParam, SolutionsFormatComplexQuery]) (any, int) {
@@ -511,7 +507,7 @@ func doKindGeneration(gen GenerateKind, previousSeed *int64, previousRandom *ran
 	clear.Fast = true
 	clear.MaxStates = gen.TryClears.Value
 
-	count := su.Max(1, int(gen.Count.Value))
+	count := int(gen.Count.Value)
 
 	type GenerationAttempt struct {
 		Generated *su.Puzzle

@@ -257,7 +257,9 @@ func (node *queryNode) convert() any {
 
 type None struct{}
 
-type Trim[T any] struct{ Value T }
+type Trim[T any] struct {
+	Value T `validate:"-"`
+}
 
 func (t *Trim[T]) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal([]byte(strings.Trim(string(data), `"`)), &t.Value)

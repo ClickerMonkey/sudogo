@@ -4,45 +4,41 @@ import (
 	"strings"
 
 	su "github.com/ClickerMonkey/sudogo/pkg"
+	"golang.org/x/exp/constraints"
 )
+
+func initAndValidate[T constraints.Ordered](out *T, def T, min T, max T, v Validator) {
+	var empty T
+
+	if *out == empty {
+		*out = def
+	} else if *out < min {
+		v.Add("cannot be less than %v: %v", min, *out)
+	} else if *out > max {
+		v.Add("cannot be greater than %v: %v", max, *out)
+	}
+}
 
 type Index int
 
-func (d Index) Validate(v Validator) {
+func (d *Index) Validate(v Validator) {
 	if kind, ok := v.Context["Kind"].(*su.Kind); ok {
-		s := Index(kind.Size())
-		if d < 0 {
-			v.Add("Cannot be less than 0: %d", d)
-		}
-		if d >= s {
-			v.Add("Cannot be greater than %d: %d", s, d)
-		}
+		initAndValidate(d, Index(0), Index(0), Index(kind.Size()-1), v)
 	}
 }
 
 type RelativeIndex int
 
-func (d RelativeIndex) Validate(v Validator) {
+func (d *RelativeIndex) Validate(v Validator) {
 	if kind, ok := v.Context["Kind"].(*su.Kind); ok {
-		s := RelativeIndex(kind.Size())
-		if d <= -s {
-			v.Add("Cannot be less than %d: %d", -s, d)
-		}
-		if d >= s {
-			v.Add("Cannot be greater than %d: %d", s, d)
-		}
+		initAndValidate(d, RelativeIndex(0), RelativeIndex(-kind.Size()+1), RelativeIndex(kind.Size()-1), v)
 	}
 }
 
 type PuzzleDimension int
 
-func (d PuzzleDimension) Validate(v Validator) {
-	if d < 2 {
-		v.Add("cannot be less than 2: %d", d)
-	}
-	if d > 64 {
-		v.Add("cannot be greater than 64: %d", d)
-	}
+func (d *PuzzleDimension) Validate(v Validator) {
+	initAndValidate(d, PuzzleDimension(0), PuzzleDimension(2), PuzzleDimension(64), v)
 }
 
 type Position struct {
@@ -132,10 +128,8 @@ func (p ConstraintUnique) toDomain() su.Constraint {
 
 type DirectionInt int
 
-func (d DirectionInt) Validate(v Validator) {
-	if d < -1 || d > 1 {
-		v.Add("must be between -1 and 1: %d", d)
-	}
+func (d *DirectionInt) Validate(v Validator) {
+	initAndValidate(d, DirectionInt(0), DirectionInt(-1), DirectionInt(1), v)
 }
 
 type ConstraintOrder struct {
@@ -236,13 +230,8 @@ func (c Constraints) toDomain() []su.Constraint {
 
 type GenerateCount int
 
-func (g GenerateCount) Validate(v Validator) {
-	if g < 1 {
-		v.Add("cannot be less than 1: %d", g)
-	}
-	if g > 1000 {
-		v.Add("cannot be greater than 1000: %d", g)
-	}
+func (g *GenerateCount) Validate(v Validator) {
+	initAndValidate(g, GenerateCount(1), GenerateCount(1), GenerateCount(1000), v)
 }
 
 type GenerateSeed int64
@@ -300,24 +289,11 @@ type GenerateKind struct {
 }
 
 func (r *GenerateKind) Validate(v Validator) {
-	if r.BoxWidth.Value == 0 {
-		r.BoxWidth.Value = 3
-	}
-	if r.BoxHeight.Value == 0 {
-		r.BoxHeight.Value = 3
-	}
-	if r.Count.Value == 0 {
-		r.Count.Value = 1
-	}
-	if r.TryCount.Value == 0 {
-		r.TryCount.Value = 256
-	}
-	if r.TryAttempts.Value == 0 {
-		r.TryAttempts.Value = 256
-	}
-	if r.TryClears.Value == 0 {
-		r.TryClears.Value = 256
-	}
+	initAndValidate(&r.BoxWidth.Value, 3, 1, 32, v.Field("boxWidth"))
+	initAndValidate(&r.BoxHeight.Value, 3, 1, 32, v.Field("boxHeight"))
+	initAndValidate(&r.TryCount.Value, 256, 1, 1024, v.Field("tryCount"))
+	initAndValidate(&r.TryAttempts.Value, 256, 1, 2048, v.Field("tryAttempts"))
+	initAndValidate(&r.TryClears.Value, 256, 1, 2048, v.Field("tryClears"))
 
 	v.Context["Kind"] = su.NewKind(int(r.BoxWidth.Value), int(r.BoxHeight.Value))
 }
@@ -457,13 +433,9 @@ type OptionsPDF struct {
 	PuzzlesHigh Trim[int] `json:"puzzlesHigh"`
 }
 
-func (o OptionsPDF) Validate(v Validator) {
-	if o.PuzzlesWide.Value < 0 || o.PuzzlesWide.Value > 3 {
-		v.AddField("puzzlesWide", "Puzzles wide must be between 1 and 3.")
-	}
-	if o.PuzzlesHigh.Value < 0 || o.PuzzlesHigh.Value > 4 {
-		v.AddField("puzzlesHigh", "Puzzles high must be between 1 and 4.")
-	}
+func (o *OptionsPDF) Validate(v Validator) {
+	initAndValidate(&o.PuzzlesWide.Value, 1, 0, 3, v.Field("puzzlesWide"))
+	initAndValidate(&o.PuzzlesHigh.Value, 1, 0, 4, v.Field("puzzlesHigh"))
 }
 
 type SolveKind struct {
@@ -483,12 +455,8 @@ type SolveKind struct {
 }
 
 func (r *SolveKind) Validate(v Validator) {
-	if r.BoxWidth == 0 {
-		r.BoxWidth = 3
-	}
-	if r.BoxHeight == 0 {
-		r.BoxHeight = 3
-	}
+	initAndValidate(&r.BoxWidth, 3, 1, 32, v.Field("boxWidth"))
+	initAndValidate(&r.BoxHeight, 3, 1, 32, v.Field("boxHeight"))
 
 	v.Context["Kind"] = su.NewKind(int(r.BoxWidth), int(r.BoxHeight))
 }

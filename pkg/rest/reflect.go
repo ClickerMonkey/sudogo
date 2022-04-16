@@ -126,7 +126,9 @@ func (r *Reflector) consumeSlice(t reflect.Type) ReflectIterator {
 		for i := 0; i < slice.Len(); i++ {
 			item := ref(slice.Index(i))
 
-			r.iterate(iters, item, consumer.ForIndex(i))
+			if indexValidator := consumer.ForIndex(i); indexValidator != nil {
+				r.iterate(iters, item, indexValidator)
+			}
 		}
 	}
 }
@@ -146,7 +148,9 @@ func (r *Reflector) consumeMap(t reflect.Type) ReflectIterator {
 			key := iter.Key()
 			value := ref(iter.Value())
 
-			r.iterate(iters, value, consumer.ForKey(key.String()))
+			if keyValidator := consumer.ForKey(key.String()); keyValidator != nil {
+				r.iterate(iters, value, keyValidator)
+			}
 		}
 	}
 }
@@ -168,7 +172,9 @@ func (r *Reflector) consumeField(parent reflect.Type, fieldIndex int) ReflectIte
 		if field.Anonymous {
 			r.iterate(iters, fieldValue, consumer)
 		} else {
-			r.iterate(iters, fieldValue, consumer.ForField(field))
+			if fieldValidator := consumer.ForField(field); fieldValidator != nil {
+				r.iterate(iters, fieldValue, fieldValidator)
+			}
 		}
 	}
 }

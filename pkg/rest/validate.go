@@ -78,6 +78,18 @@ func (v Validator) ForField(field reflect.StructField) ReflectConsumer {
 	if jsonName, ok := field.Tag.Lookup("json"); ok {
 		fieldName = jsonName
 	}
+	if validate, ok := field.Tag.Lookup("validate"); ok {
+		if strings.Index(validate, ",skip") != -1 {
+			return nil
+		}
+		if strings.Index(validate, "-") != -1 {
+			return v
+		}
+		split := strings.Split(validate, ",")
+		if len(split[0]) > 0 {
+			fieldName = split[0]
+		}
+	}
 
 	return v.Field(fieldName)
 }
