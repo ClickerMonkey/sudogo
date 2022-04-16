@@ -14,16 +14,15 @@ func GetRouter() chi.Router {
 
 	r.Mount("/debug", middleware.Profiler())
 
-	// r.Post("/generate", JsonRoute(DoGenerate))
-	// r.Get("/solve/{id}", JsonRoute(DoPuzzleSolveSimple))
-	// r.Get("/puzzle/{id}", JsonRoute(DoPuzzleGet))
-	// r.Get("/puzzle", JsonRoute(DoPuzzleGenerateSimple))
-	// r.Get("/pdf", JsonRoute(DoPuzzlePDFSimple))
-
-	// new routes
 	r.Get("/puzzle/{format}/{id}", JsonRoute(DoPuzzleFormatSingle))
+
 	r.Get("/solve/{format}/{id}", JsonRoute(DoSolveFormatSingle))
+	r.Post("/solve/{format}", JsonRoute(DoSolveFormatComplex))
+
 	r.Get("/generate/{format}", JsonRoute(DoGenerateFormatSingle))
+	r.Post("/generate/{format}", JsonRoute(DoGenerateFormatMany))
+
+	r.Post("/solutions/{format}", JsonRoute(DoSolutionsFormatComplex))
 
 	return r
 }

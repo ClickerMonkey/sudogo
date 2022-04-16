@@ -261,6 +261,8 @@ func (g *GenerateSeed) Validate(v Validator) {
 	}
 }
 
+var customClearLimit = su.ClearLimit{}
+
 var DifficultyMap = map[string]su.ClearLimit{
 	"":           su.DifficultyMedium,
 	"beginner":   su.DifficultyBeginner,
@@ -270,7 +272,7 @@ var DifficultyMap = map[string]su.ClearLimit{
 	"tricky":     su.DifficultyTricky,
 	"diabolical": su.DifficultyDiabolical,
 	"fiendish":   su.DifficultyFiendish,
-	"custom":     su.ClearLimit{},
+	"custom":     customClearLimit,
 }
 
 type GenerateKind struct {
@@ -292,6 +294,9 @@ type GenerateKind struct {
 	Solutions      Trim[bool]            `json:"solutions"`
 	SolutionSteps  Trim[bool]            `json:"solutionSteps"`
 	SolutionStates Trim[bool]            `json:"solutionStates"`
+	TryCount       Trim[int]             `json:"tryCount"`
+	TryAttempts    Trim[int]             `json:"tryAttempts"`
+	TryClears      Trim[int]             `json:"tryClears"`
 }
 
 func (r *GenerateKind) Validate(v Validator) {
@@ -303,6 +308,15 @@ func (r *GenerateKind) Validate(v Validator) {
 	}
 	if r.Count.Value == 0 {
 		r.Count.Value = 1
+	}
+	if r.TryCount.Value == 0 {
+		r.TryCount.Value = 256
+	}
+	if r.TryAttempts.Value == 0 {
+		r.TryAttempts.Value = 256
+	}
+	if r.TryClears.Value == 0 {
+		r.TryClears.Value = 256
 	}
 
 	v.Context["Kind"] = su.NewKind(int(r.BoxWidth.Value), int(r.BoxHeight.Value))
@@ -450,4 +464,63 @@ func (o OptionsPDF) Validate(v Validator) {
 	if o.PuzzlesHigh.Value < 0 || o.PuzzlesHigh.Value > 4 {
 		v.AddField("puzzlesHigh", "Puzzles high must be between 1 and 4.")
 	}
+}
+
+type SolveKind struct {
+	BoxWidth       PuzzleDimension `json:"boxWidth"`
+	BoxHeight      PuzzleDimension `json:"boxHeight"`
+	Puzzle         [][]int         `json:"puzzle"`
+	MinCost        int             `json:"minCost"`
+	MaxCost        int             `json:"maxCost"`
+	MaxPlacements  int             `json:"maxPlacements"`
+	MaxSteps       int             `json:"maxSteps"`
+	MaxBatches     int             `json:"maxBatches"`
+	Techniques     map[string]int  `json:"techniques"`
+	Constraints    Constraints     `json:"constraints"`
+	Candidates     bool            `json:"candidates"`
+	SolutionSteps  bool            `json:"solutionSteps"`
+	SolutionStates bool            `json:"solutionStates"`
+}
+
+func (r *SolveKind) Validate(v Validator) {
+	if r.BoxWidth == 0 {
+		r.BoxWidth = 3
+	}
+	if r.BoxHeight == 0 {
+		r.BoxHeight = 3
+	}
+
+	v.Context["Kind"] = su.NewKind(int(r.BoxWidth), int(r.BoxHeight))
+}
+
+func (r SolveKind) toDomain() (*su.Puzzle, su.SolveLimit) {
+	boxWidth := su.Max(1, int(r.BoxWidth))
+	boxHeight := su.Max(1, int(r.BoxHeight))
+	kind := su.NewKind(boxWidth, boxHeight)
+	kind.Constraints = r.Constraints.toDomain()
+
+	limit := su.SolveLimit{}
+
+	if r.Techniques != nil && len(r.Techniques) > 0 {
+		limit.Techniques = r.Techniques
+	}
+
+	applyValue := func(user int, out *int) {
+		if user != 0 {
+			*out = user
+		} else if user < 0 {
+			*out = 0
+		}
+	}
+
+	applyValue(r.MaxBatches, &limit.MaxBatches)
+	applyValue(r.MaxCost, &limit.MaxCost)
+	applyValue(r.MinCost, &limit.MinCost)
+	applyValue(r.MaxSteps, &limit.MaxLogs)
+	applyValue(r.MaxPlacements, &limit.MaxPlacements)
+
+	puzzle := kind.Empty()
+	puzzle.SetAll(r.Puzzle)
+
+	return &puzzle, limit
 }

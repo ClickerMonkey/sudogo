@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	su "github.com/ClickerMonkey/sudogo/pkg"
@@ -14,254 +15,6 @@ type PuzzleParams struct {
 	FormatParam
 	IDParam
 }
-
-/*
-
-type PuzzleGenerated struct {
-	Values          [][]int    `json:"values"`
-	Solution        *[][]int   `json:"solution"`
-	SolutionEncoded string     `json:"solutionEncoded"`
-	Logs            *[]string  `json:"logs"`
-	Candidates      *[][][]int `json:"candidates"`
-}
-
-type GenerateJsonResponse struct {
-	Seed    int64             `json:"seed"`
-	Puzzles []PuzzleGenerated `json:"puzzles"`
-}
-
-func DoGenerate(r JsonRequest[GenerateRequest, None, None]) (any, int) {
-	rsp := GenerateJsonResponse{}
-
-	rsp.Seed = su.RandomSeed()
-	if r.Body.Seed != 0 {
-		rsp.Seed = int64(r.Body.Seed)
-	}
-
-	rand := su.RandomSeeded(rsp.Seed)
-
-	for _, puzzle := range r.Body.Kinds {
-		kind, _, clear := puzzle.toDomain()
-
-		for i := 0; i < int(puzzle.Count); i++ {
-			gen := su.NewRandomGenerator(kind, rand)
-			gen.Solver().LogEnabled = puzzle.SolutionLogs.Value
-			gen.Solver().LogState = puzzle.SolutionStates.Value
-
-			if generated, _ := gen.Generate(); generated != nil {
-				if cleared, _ := gen.ClearCells(generated, clear); cleared != nil {
-
-					final := PuzzleGenerated{
-						Values:          cleared.GetAll(),
-						SolutionEncoded: generated.EncodedString(),
-					}
-
-					if puzzle.Solutions.Value {
-						solution := generated.GetAll()
-						final.Solution = &solution
-					}
-
-					if puzzle.SolutionLogs.Value {
-						solverLogs := gen.Solver().Logs
-						logs := make([]string, 0, len(solverLogs))
-						for _, log := range solverLogs {
-							logs = append(logs, log.String())
-						}
-						final.Logs = &logs
-					}
-
-					if puzzle.Candidates.Value {
-						size := kind.Size()
-						cand := make([][][]int, size)
-						for r := 0; r < size; r++ {
-							cand[r] = make([][]int, size)
-							for c := 0; c < size; c++ {
-								cand[r][c] = cleared.Get(c, r).Candidates()
-							}
-						}
-						final.Candidates = &cand
-					}
-
-					rsp.Puzzles = append(rsp.Puzzles, final)
-				}
-			}
-		}
-	}
-
-	return rsp, 200
-}
-
-type PuzzleGet struct {
-	ID string `json:"id"`
-}
-
-func DoPuzzleGet(r JsonRequest[None, PuzzleGet, None]) (any, int) {
-	p := su.FromString(r.Params.ID)
-	if p != nil {
-		return p.GetAll(), 200
-	}
-	return nil, 400
-}
-
-type PuzzleGenerateSimpleQuery struct {
-	Difficulty string `json:"d"`
-}
-
-type PuzzleGenerateSimpleResponse struct {
-	Difficulty string  `json:"difficulty"`
-	State      string  `json:"state"`
-	Encoded    string  `json:"encoded"`
-	Duration   string  `json:"duration"`
-	Puzzle     [][]int `json:"puzzle"`
-	Solution   [][]int `json:"solution"`
-}
-
-var DifficultyMap = map[string]su.ClearLimit{
-	"":           su.DifficultyMedium,
-	"beginner":   su.DifficultyBeginner,
-	"easy":       su.DifficultyEasy,
-	"medium":     su.DifficultyMedium,
-	"hard":       su.DifficultyHard,
-	"tricky":     su.DifficultyTricky,
-	"diabolical": su.DifficultyDiabolical,
-	"fiendish":   su.DifficultyFiendish,
-}
-
-func DoPuzzleGenerateSimple(r JsonRequest[None, None, PuzzleGenerateSimpleQuery]) (any, int) {
-	key := strings.ToLower(r.Query.Difficulty)
-	limits, exists := DifficultyMap[key]
-
-	if !exists {
-		return nil, 404
-	}
-
-	start := time.Now()
-
-	generator := su.Classic.Generator()
-	generated, _ := generator.Generate()
-
-	if generated == nil {
-		return nil, 408
-	}
-
-	fastLimits := limits
-	fastLimits.Fast = true
-
-	cleared, _ := generator.ClearCells(generated, fastLimits)
-
-	duration := time.Since(start)
-
-	if cleared == nil {
-		return nil, 408
-	}
-
-	rsp := PuzzleGenerateSimpleResponse{}
-	rsp.Difficulty = key
-	rsp.Puzzle = cleared.GetAll()
-	rsp.Solution = generated.GetAll()
-	rsp.State = cleared.ToStateString(true, ".")
-	rsp.Encoded = cleared.EncodedString()
-	rsp.Duration = duration.String()
-
-	return rsp, 200
-}
-
-type PuzzleSolveSimpleParams struct {
-	ID string `json:"id"`
-}
-
-type PuzzleSolveSimpleResponse struct {
-	Solution      [][]int           `json:"solution"`
-	SolutionCount int               `json:"solutionCount"`
-	Duration      string            `json:"duration"`
-	Cost          int               `json:"cost"`
-	Steps         []PuzzleSolveStep `json:"steps"`
-}
-
-func DoPuzzleSolveSimple(r JsonRequest[None, PuzzleSolveSimpleParams, None]) (any, int) {
-	puzzle := su.FromString(r.Params.ID)
-	if puzzle == nil {
-		return nil, 400
-	}
-
-	rsp := PuzzleSolveSimpleResponse{}
-
-	start := time.Now()
-
-	solutions := puzzle.GetSolutions(su.SolutionsLimit{
-		MaxSolutions: 20,
-		LogEnabled:   true,
-	})
-
-	duration := time.Since(start)
-
-	if len(solutions) == 0 {
-		return rsp, 200
-	}
-
-	first := solutions[0]
-
-	rsp.Solution = first.Puzzle.GetAll()
-	rsp.SolutionCount = len(solutions)
-	rsp.Duration = duration.String()
-	rsp.Cost = first.GetLastLog().RunningCost
-	rsp.Steps = make([]PuzzleSolveStep, 0, len(first.Logs))
-
-	for _, log := range first.Logs {
-		rsp.Steps = append(rsp.Steps, NewPuzzleSolveStep(log))
-	}
-
-	return rsp, 200
-}
-
-type PuzzlePDFSimpleQuery struct {
-	Difficulty string     `json:"d"`
-	Candidates Trim[bool] `json:"c"`
-	Count      Trim[int]  `json:"n"`
-	Wide       Trim[int]  `json:"w"`
-	High       Trim[int]  `json:"h"`
-}
-
-func DoPuzzlePDFSimple(r JsonRequest[None, None, PuzzlePDFSimpleQuery]) (any, int) {
-	key := strings.ToLower(r.Query.Difficulty)
-	limits, exists := DifficultyMap[key]
-
-	if !exists {
-		return nil, 404
-	}
-
-	pdf := su.NewPDF()
-	pdf.Candidates = bool(r.Query.Candidates.Value)
-	pdf.PuzzlesHigh = su.Max(1, r.Query.High.Value)
-	pdf.PuzzlesWide = su.Max(1, r.Query.Wide.Value)
-
-	count := su.Max(1, r.Query.Count.Value)
-
-	for len(pdf.Puzzles) < count {
-		generator := su.Classic.Generator()
-		generated, _ := generator.Generate()
-
-		if generated == nil {
-			continue
-		}
-
-		fastLimits := limits
-		fastLimits.Fast = true
-
-		cleared, _ := generator.ClearCells(generated, fastLimits)
-
-		if cleared == nil {
-			continue
-		}
-
-		pdf.Add(cleared)
-	}
-
-	pdf.Send(r.Response, false)
-
-	return nil, -1
-}
-*/
 
 // =====================================================
 // GET /puzzle/{format}/{id}
@@ -335,8 +88,9 @@ type SolveFormatSingleJson struct {
 }
 
 type SolveFormatSingleQuery struct {
-	Steps  Trim[bool] `json:"steps"`
-	States Trim[bool] `json:"stepStates"`
+	Steps      Trim[bool] `json:"steps"`
+	States     Trim[bool] `json:"stepStates"`
+	Candidates Trim[bool] `json:"stepCandidates"`
 }
 
 func DoSolveFormatSingle(r JsonRequest[None, PuzzleParams, SolveFormatSingleQuery]) (any, int) {
@@ -382,17 +136,31 @@ func DoSolveFormatSingle(r JsonRequest[None, PuzzleParams, SolveFormatSingleQuer
 		return rsp, http.StatusOK
 
 	case FormatText:
-		text := first.Puzzle.ToConsoleString() + "\n"
-		text += fmt.Sprintf("Duration: %v\n", duration)
-		text += fmt.Sprintf("Unique: %v\n", len(solutions) == 1)
-		text += fmt.Sprintf("Cost: %d\n", first.GetLastLog().RunningCost)
-		text += "\n"
+		sb := strings.Builder{}
+
+		sb.WriteString(first.Puzzle.ToConsoleString())
+		sb.WriteString("\n")
+		sb.WriteString(fmt.Sprintf("Duration: %v\n", duration))
+		sb.WriteString(fmt.Sprintf("Unique: %v\n", len(solutions) == 1))
+		sb.WriteString(fmt.Sprintf("Cost: %d\n", first.GetLastLog().RunningCost))
+		sb.WriteString("\n")
 
 		for _, log := range first.Logs {
-			text += log.String() + "\n"
+			sb.WriteString(log.String())
+			sb.WriteString("\n")
+
+			if states && log.State != nil {
+				if r.Query.Candidates.Value {
+					sb.WriteString(log.State.ToConsoleCandidatesString())
+				} else {
+					sb.WriteString(log.State.ToConsoleString())
+				}
+				sb.WriteString("\n")
+				sb.WriteString("\n")
+			}
 		}
 
-		return r.SendText(text, http.StatusOK)
+		return r.SendText(sb.String(), http.StatusOK)
 
 	case FormatPDF:
 		pdf := su.NewPDF()
@@ -435,48 +203,7 @@ func DoGenerateFormatSingle(r JsonRequest[None, FormatParam, GenerateFormatSingl
 	case FormatText:
 		sb := strings.Builder{}
 
-		sb.WriteString(fmt.Sprintf("Seed: %d\n", kind.Seed.Value))
-
-		for index, g := range generated {
-			sb.WriteString("\n")
-			sb.WriteString(fmt.Sprintf("Puzzle #%d\n\n", index+1))
-
-			if kind.Candidates.Value {
-				sb.WriteString(g.Puzzle.Puzzle.ToConsoleCandidatesString())
-			} else {
-				sb.WriteString(g.Puzzle.Puzzle.ToConsoleString())
-			}
-			sb.WriteString("\n\n")
-
-			if g.Difficulty != "" {
-				sb.WriteString(fmt.Sprintf("Difficulty: %v\n", g.Difficulty))
-			}
-			sb.WriteString(fmt.Sprintf("Duration: %v\n\n", g.Duration))
-
-			if kind.Solutions.Value {
-				sb.WriteString("Solution:\n")
-
-				sb.WriteString(g.Solution.Puzzle.ToConsoleString())
-				sb.WriteString("\n\n")
-			}
-
-			if kind.SolutionSteps.Value || kind.SolutionStates.Value {
-				sb.WriteString("Steps:\n")
-
-				for _, log := range g.Steps {
-					if kind.SolutionSteps.Value {
-						sb.WriteString(log.Log.String())
-						sb.WriteString("\n")
-					}
-					if kind.SolutionStates.Value {
-						sb.WriteString(log.Log.State.ToConsoleString())
-						sb.WriteString("\n")
-					}
-					sb.WriteString("\n")
-				}
-				sb.WriteString("\n")
-			}
-		}
+		writeGeneratedKind(&sb, kind, generated)
 
 		return r.SendText(sb.String(), http.StatusOK)
 
@@ -498,13 +225,269 @@ func DoGenerateFormatSingle(r JsonRequest[None, FormatParam, GenerateFormatSingl
 // POST /generate/{format}
 // =====================================================
 
+type GenerateFormatManyJson struct {
+	Seed    int64             `json:"seed"`
+	Kind    GenerateKind      `json:"kind"`
+	Puzzles []GeneratedPuzzle `json:"puzzles"`
+}
+
+type GenerateFormatManyQuery struct {
+	PDF OptionsPDF `json:"pdf"`
+}
+
+func DoGenerateFormatMany(r JsonRequest[GenerateRequest, FormatParam, GenerateFormatManyQuery]) (any, int) {
+	rsp := doKindsGeneration(r.Body.Kinds, r.Body.Seed)
+
+	switch r.Params.Format {
+	case FormatJson:
+		return rsp, http.StatusOK
+
+	case FormatText:
+		sb := strings.Builder{}
+
+		for _, run := range rsp {
+			writeGeneratedKind(&sb, run.Kind, run.Puzzles)
+		}
+
+		return r.SendText(sb.String(), http.StatusOK)
+
+	case FormatPDF:
+		pdf := su.NewPDF()
+		pdf.PuzzlesWide = su.Max(1, r.Query.PDF.PuzzlesWide.Value)
+		pdf.PuzzlesHigh = su.Max(1, r.Query.PDF.PuzzlesHigh.Value)
+		for _, run := range rsp {
+			for _, g := range run.Puzzles {
+				pdf.Add(g.Puzzle.Puzzle, run.Kind.Candidates.Value, run.Kind.State.Value, run.Kind.Solutions.Value)
+			}
+		}
+
+		return pdf.Send(r.Response, true)
+	}
+
+	return nil, -1
+}
+
 // =====================================================
 // POST /solution/{format}
 // =====================================================
 
+type SolveFormatComplexJson struct {
+	BoxWidth  int               `json:"boxWidth"`
+	BoxHeight int               `json:"boxHeight"`
+	Puzzle    [][]int           `json:"puzzle"`
+	Solution  [][]int           `json:"solution"`
+	Unique    bool              `json:"unique"`
+	Duration  string            `json:"duration"`
+	Cost      int               `json:"cost"`
+	Steps     []PuzzleSolveStep `json:"steps,omitempty"`
+}
+
+type SolveFormatComplexQuery struct {
+	Steps      Trim[bool] `json:"steps"`
+	States     Trim[bool] `json:"stepStates"`
+	Candidates Trim[bool] `json:"stepCandidates"`
+}
+
+func DoSolveFormatComplex(r JsonRequest[SolveKind, FormatParam, SolveFormatSingleQuery]) (any, int) {
+	puzzle, solveLimit := r.Body.toDomain()
+
+	steps := r.Query.Steps.Value
+	states := r.Query.States.Value
+
+	start := time.Now()
+
+	solutions := puzzle.GetSolutions(su.SolutionsLimit{
+		SolveLimit:   solveLimit,
+		MaxSolutions: 2,
+		LogEnabled:   steps,
+		LogState:     states,
+	})
+
+	duration := time.Since(start)
+
+	if len(solutions) == 0 {
+		return nil, http.StatusNotFound
+	}
+
+	first := solutions[0]
+
+	switch r.Params.Format {
+	case FormatJson:
+		rsp := SolveFormatComplexJson{}
+		rsp.Puzzle = puzzle.GetAll()
+		rsp.BoxWidth = puzzle.Kind.BoxSize.Width
+		rsp.BoxHeight = puzzle.Kind.BoxSize.Height
+		rsp.Solution = first.Puzzle.GetAll()
+		rsp.Unique = len(solutions) == 1
+		rsp.Duration = duration.String()
+		rsp.Cost = first.GetLastLog().RunningCost
+		if steps {
+			rsp.Steps = toPuzzleSteps(first, false)
+		}
+
+		return rsp, http.StatusOK
+
+	case FormatText:
+		sb := strings.Builder{}
+
+		sb.WriteString(first.Puzzle.ToConsoleString())
+		sb.WriteString("\n")
+		sb.WriteString(fmt.Sprintf("Duration: %v\n", duration))
+		sb.WriteString(fmt.Sprintf("Unique: %v\n", len(solutions) == 1))
+		sb.WriteString(fmt.Sprintf("Cost: %d\n", first.GetLastLog().RunningCost))
+		sb.WriteString("\n")
+
+		for _, log := range first.Logs {
+			sb.WriteString(log.String())
+			sb.WriteString("\n")
+			if states && log.State != nil {
+				if r.Query.Candidates.Value {
+					sb.WriteString(log.State.ToConsoleCandidatesString())
+				} else {
+					sb.WriteString(log.State.ToConsoleString())
+				}
+				sb.WriteString("\n")
+				sb.WriteString("\n")
+			}
+		}
+
+		return r.SendText(sb.String(), http.StatusOK)
+
+	case FormatPDF:
+		pdf := su.NewPDF()
+		pdf.Add(&first.Puzzle, false, false, false)
+
+		return pdf.Send(r.Response, true)
+	}
+
+	return nil, http.StatusOK
+}
+
 // =====================================================
 // POST /solutions/{format}
 // =====================================================
+
+type SolutionsFormatComplexJson struct {
+	BoxWidth  int                              `json:"boxWidth"`
+	BoxHeight int                              `json:"boxHeight"`
+	Puzzle    [][]int                          `json:"puzzle"`
+	Duration  string                           `json:"duration"`
+	Solutions []SolutionsFormatComplexSolution `json:"solutions"`
+}
+
+type SolutionsFormatComplexSolution struct {
+	Solution [][]int           `json:"solution"`
+	Cost     int               `json:"cost"`
+	Steps    []PuzzleSolveStep `json:"steps,omitempty"`
+}
+
+type SolutionsFormatComplexQuery struct {
+	Steps  Trim[bool] `json:"steps"`
+	States Trim[bool] `json:"stepStates"`
+	Limit  Trim[int]  `json:"limit"`
+}
+
+func (q *SolutionsFormatComplexQuery) Validate(v Validator) {
+	if q.Limit.Value == 0 {
+		q.Limit.Value = 256
+	} else if q.Limit.Value > 1024 {
+		v.AddField("limit", "exceeds the allowed maximum of 1024: %d", q.Limit.Value)
+	}
+}
+
+func DoSolutionsFormatComplex(r JsonRequest[SolveKind, FormatParam, SolutionsFormatComplexQuery]) (any, int) {
+	puzzle, solveLimit := r.Body.toDomain()
+
+	steps := r.Query.Steps.Value
+	states := r.Query.States.Value
+	limit := r.Query.Limit.Value
+
+	start := time.Now()
+
+	solutions := puzzle.GetSolutions(su.SolutionsLimit{
+		SolveLimit:   solveLimit,
+		MaxSolutions: limit,
+		LogEnabled:   steps,
+		LogState:     states,
+	})
+
+	duration := time.Since(start)
+
+	if len(solutions) == 0 {
+		return nil, http.StatusNotFound
+	}
+
+	switch r.Params.Format {
+	case FormatJson:
+		rsp := SolutionsFormatComplexJson{}
+		rsp.Puzzle = puzzle.GetAll()
+		rsp.BoxWidth = puzzle.Kind.BoxSize.Width
+		rsp.BoxHeight = puzzle.Kind.BoxSize.Height
+		rsp.Duration = duration.String()
+		rsp.Solutions = make([]SolutionsFormatComplexSolution, len(solutions))
+
+		for i, solution := range solutions {
+			rsp.Solutions[i].Cost = solution.GetLastLog().Cost
+			rsp.Solutions[i].Solution = solution.Puzzle.GetAll()
+			if steps {
+				rsp.Solutions[i].Steps = toPuzzleSteps(solution, false)
+			}
+		}
+
+		return rsp, http.StatusOK
+
+	case FormatText:
+		sb := strings.Builder{}
+
+		sb.WriteString(fmt.Sprintf("Solutions: %v\n", len(solutions)))
+		sb.WriteString(fmt.Sprintf("Duration: %v\n\n", duration))
+
+		for i, solution := range solutions {
+			sb.WriteString(fmt.Sprintf("\nSolution #%d\n", i+1))
+			sb.WriteString(solution.Puzzle.ToConsoleString())
+			sb.WriteString("\n")
+			sb.WriteString(fmt.Sprintf("Cost: %d\n\n", solution.GetLastLog().RunningCost))
+
+			for _, log := range solution.Logs {
+				sb.WriteString(log.String())
+				sb.WriteString("\n")
+				if states && log.State != nil {
+					sb.WriteString(log.State.String())
+					sb.WriteString("\n")
+					sb.WriteString("\n")
+				}
+			}
+		}
+
+		return r.SendText(sb.String(), http.StatusOK)
+
+	case FormatPDF:
+		pdf := su.NewPDF()
+		for _, solution := range solutions {
+			pdf.Add(&solution.Puzzle, false, false, false)
+		}
+
+		return pdf.Send(r.Response, true)
+	}
+
+	return nil, http.StatusOK
+}
+
+// Helper functions
+
+func doKindsGeneration(gens []GenerateKind, seed GenerateSeed) []GenerateFormatManyJson {
+	kinds := make([]GenerateFormatManyJson, len(gens))
+	previousSeed := int64(seed)
+	previousRandom := su.RandomSeeded(previousSeed)
+
+	for index, g := range gens {
+		kinds[index].Seed = int64(g.Seed.Value)
+		kinds[index].Kind = g
+		kinds[index].Puzzles = doKindGeneration(g, &previousSeed, previousRandom)
+	}
+
+	return kinds
+}
 
 func doKindGeneration(gen GenerateKind, previousSeed *int64, previousRandom *rand.Rand) []GeneratedPuzzle {
 	rand := previousRandom
@@ -526,52 +509,76 @@ func doKindGeneration(gen GenerateKind, previousSeed *int64, previousRandom *ran
 	candidates := gen.Candidates.Value
 
 	clear.Fast = true
-	clear.MaxStates = 256
+	clear.MaxStates = gen.TryClears.Value
 
 	count := su.Max(1, int(gen.Count.Value))
 
-	generateTries := 48
-	generateAttempts := 256
+	type GenerationAttempt struct {
+		Generated *su.Puzzle
+		Cleared   *su.Puzzle
+		Solver    *su.Solver
+	}
 
 	for i := 0; i < count; i++ {
-		g := su.NewRandomGenerator(kind, rand)
-		g.Solver().LogEnabled = gen.SolutionSteps.Value
-		g.Solver().LogState = gen.SolutionStates.Value
 
 		start := time.Now()
+		result := make(chan *GenerationAttempt)
 
-		for k := 0; k < generateTries; k++ {
-			generated, _ := g.Attempts(generateAttempts)
+		var wg sync.WaitGroup
+		wg.Add(gen.TryCount.Value)
 
-			if generated != nil {
-				cleared, _ := g.ClearCells(generated, clear)
+		for k := 0; k < gen.TryCount.Value; k++ {
+			go func() {
+				defer wg.Done()
 
-				duration := time.Since(start)
+				g := su.NewRandomGenerator(kind, rand)
+				g.Solver().LogEnabled = gen.SolutionSteps.Value
+				g.Solver().LogState = gen.SolutionStates.Value
 
-				if cleared != nil {
-					solver := g.Solver()
+				generated, _ := g.Attempts(gen.TryAttempts.Value)
 
-					pg := GeneratedPuzzle{}
-					pg.Difficulty = gen.Difficulty
-					pg.Duration = duration.String()
-					pg.Puzzle = toPuzzleData(cleared, candidates)
-					pg.Solver = solver
+				if generated != nil {
+					cleared, _ := g.ClearCells(generated, clear)
 
-					if gen.Solutions.Value {
-						solution := toPuzzleData(generated, false)
-						pg.Solution = &solution
+					if cleared != nil {
+						solver := g.Solver()
+
+						result <- &GenerationAttempt{
+							Generated: generated,
+							Cleared:   cleared,
+							Solver:    solver,
+						}
 					}
-					if solver.LogEnabled || solver.LogState {
-						pg.Steps = toPuzzleSteps(g.Solver(), candidates)
-					}
-
-					puzzles = append(puzzles, pg)
-
-					break
 				}
-			}
+			}()
 		}
 
+		go func() {
+			wg.Wait()
+			close(result)
+		}()
+
+		found, success := <-result
+
+		if success {
+			duration := time.Since(start)
+
+			pg := GeneratedPuzzle{}
+			pg.Difficulty = gen.Difficulty
+			pg.Duration = duration.String()
+			pg.Puzzle = toPuzzleData(found.Cleared, candidates)
+			pg.Solver = found.Solver
+
+			if gen.Solutions.Value {
+				solution := toPuzzleData(found.Generated, false)
+				pg.Solution = &solution
+			}
+			if found.Solver.LogEnabled || found.Solver.LogState {
+				pg.Steps = toPuzzleSteps(found.Solver, candidates)
+			}
+
+			puzzles = append(puzzles, pg)
+		}
 	}
 
 	return puzzles
@@ -627,4 +634,55 @@ func toPuzzleStep(log su.SolverLog, state bool, candidates bool) PuzzleSolveStep
 	}
 
 	return step
+}
+
+func writeGeneratedKind(sb *strings.Builder, kind GenerateKind, generated []GeneratedPuzzle) {
+	sb.WriteString(fmt.Sprintf("Seed: %d\n", kind.Seed.Value))
+
+	for index, g := range generated {
+		sb.WriteString("\n")
+		sb.WriteString(fmt.Sprintf("Puzzle #%d\n", index+1))
+
+		if kind.State.Value {
+			sb.WriteString(g.Puzzle.Puzzle.ToStateString(true, "."))
+			sb.WriteString("\n")
+		}
+		sb.WriteString("\n")
+
+		if kind.Candidates.Value {
+			sb.WriteString(g.Puzzle.Puzzle.ToConsoleCandidatesString())
+		} else {
+			sb.WriteString(g.Puzzle.Puzzle.ToConsoleString())
+		}
+		sb.WriteString("\n\n")
+
+		if g.Difficulty != "" {
+			sb.WriteString(fmt.Sprintf("Difficulty: %v\n", g.Difficulty))
+		}
+		sb.WriteString(fmt.Sprintf("Duration: %v\n\n", g.Duration))
+
+		if kind.Solutions.Value {
+			sb.WriteString("Solution:\n")
+
+			sb.WriteString(g.Solution.Puzzle.ToConsoleString())
+			sb.WriteString("\n\n")
+		}
+
+		if kind.SolutionSteps.Value || kind.SolutionStates.Value {
+			sb.WriteString("Steps:\n")
+
+			for _, log := range g.Steps {
+				if kind.SolutionSteps.Value {
+					sb.WriteString(log.Log.String())
+					sb.WriteString("\n")
+				}
+				if kind.SolutionStates.Value {
+					sb.WriteString(log.Log.State.ToConsoleString())
+					sb.WriteString("\n")
+				}
+				sb.WriteString("\n")
+			}
+			sb.WriteString("\n")
+		}
+	}
 }
