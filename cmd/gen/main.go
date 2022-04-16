@@ -123,7 +123,7 @@ func main() {
 			}
 
 			if pdfMode {
-				pdf.Add(puzzle, *candidates)
+				pdf.Add(puzzle, *candidates, false, *solutions)
 			} else {
 				handleConsoleOutput(puzzleIndex, puzzle, displaySolution, *candidates, *logSteps)
 			}
